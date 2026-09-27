@@ -11,7 +11,22 @@ class ActivityLog < ApplicationRecord
     generation_succeeded: 'generation_succeeded',
     generation_failed: 'generation_failed',
     generation_cancelled: 'generation_cancelled',
-    llm_chat: 'llm_chat'
+    llm_chat: 'llm_chat',
+    server_registered: 'server_registered',
+    server_updated: 'server_updated',
+    server_deleted: 'server_deleted',
+    server_paused: 'server_paused',
+    server_resumed: 'server_resumed',
+    server_shared: 'server_shared',
+    server_unshared: 'server_unshared',
+    server_converted: 'server_converted',
+    server_key_created: 'server_key_created',
+    server_key_rotated: 'server_key_rotated',
+    server_key_revoked: 'server_key_revoked',
+    model_download_requested: 'model_download_requested',
+    model_download_cancelled: 'model_download_cancelled',
+    source_credential_saved: 'source_credential_saved',
+    source_credential_deleted: 'source_credential_deleted'
   }, validate: true
 
   scope :recent, -> { order(created_at: :desc, id: :desc) }

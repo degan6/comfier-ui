@@ -1,0 +1,28 @@
+<% inventory = backend.backend_inventory %>
+<div class="h-section-label mt-4">Installed</div>
+<% if inventory.nil? %>
+  <p class="text-13 text-secondary">The server hasn't reported its models yet.</p>
+<% else %>
+  <div data-controller="filter-list">
+    <input type="search" class="form-control form-control-sm mb-2" placeholder="Search models and node types"
+           data-action="input->filter-list#filter" aria-label="Search installed models and node types">
+    <% inventory.models_json.sort.each do |folder, files| %>
+      <details class="mb-1" data-filter-list-target="group">
+        <summary class="text-13"><%= folder %> <span class="text-secondary num"><%= Array(files).size %></span></summary>
+        <ul class="list-unstyled text-12 ps-3 mb-1">
+          <% Array(files).sort.each do |file| %>
+            <li data-filter-list-target="item" data-text="<%= "#{folder}/#{file}".downcase %>"><%= file %></li>
+          <% end %>
+        </ul>
+      </details>
+    <% end %>
+    <details class="mb-1" data-filter-list-target="group">
+      <summary class="text-13">Node types <span class="text-secondary num"><%= inventory.node_type_count %></span></summary>
+      <ul class="list-unstyled text-12 ps-3 mb-1">
+        <% Array(inventory.node_types_json).sort.each do |node_type| %>
+          <li data-filter-list-target="item" data-text="<%= node_type.downcase %>"><%= node_type %></li>
+        <% end %>
+      </ul>
+    </details>
+  </div>
+<% end %>

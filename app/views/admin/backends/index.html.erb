@@ -33,6 +33,19 @@
     </thead>
     <tbody>
       <% @backends.each do |backend| %>
+        <% if backend.agent? %>
+          <tr class="row-link" data-controller="row-link" data-row-link-href-value="<%= server_path(backend) %>">
+            <td><%= server_availability(backend) %></td>
+            <td>
+              <%= link_to backend.name, server_path(backend), class: 'text-body fw-medium' %>
+              <div class="text-12 text-secondary">Comfier Agent<%= " · #{backend.owner_user.display_name}" if backend.owner_user %></div>
+            </td>
+            <td class="text-12 text-secondary"><%= gpu_line(backend) %></td>
+            <td class="text-12 text-secondary"><%= friendly_time(backend.last_seen_at) || "—" %></td>
+            <td></td>
+          </tr>
+          <% next %>
+        <% end %>
         <tr class="row-link" data-controller="row-link" data-row-link-href-value="<%= edit_admin_backend_path(backend) %>">
           <td><%= backend_status_dot(backend) %></td>
           <td>
@@ -56,6 +69,10 @@
               </button>
               <ul class="dropdown-menu dropdown-menu-end text-13">
                 <li><%= link_to 'Edit', edit_admin_backend_path(backend), class: 'dropdown-item' %></li>
+                <li>
+                  <%= button_to 'Switch to the Comfier Agent', convert_admin_backend_path(backend), class: 'dropdown-item',
+                                form: { data: { turbo: false, turbo_confirm: "Switch #{backend.name} to the agent? You'll get a key to install on it; Comfier stops calling its URL." } } %>
+                </li>
                 <li>
                   <%= button_to 'Delete', admin_backend_path(backend), method: :delete, class: 'dropdown-item text-danger',
                                           form: { data: { turbo_confirm: "Remove #{backend.name}?" } } %>

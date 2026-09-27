@@ -42,13 +42,36 @@ Rails.application.routes.draw do
 
   resource :settings, only: %i[show update]
   resource :public_links, only: %i[show destroy], path: 'settings/public-links'
+  resources :source_credentials, only: %i[index create destroy], path: 'settings/tokens'
+  get 'estimate', to: 'estimates#show', as: :estimate
+
+  resources :servers, except: :edit do
+    member do
+      get :settings, action: :edit
+      get :setup
+      post :pause
+      post :resume
+      get :load
+      get :performance
+    end
+    resources :keys, only: %i[create destroy], controller: 'servers/keys' do
+      post :rotate, on: :collection
+    end
+    resources :downloads, only: %i[create destroy], controller: 'servers/downloads'
+  end
 
   namespace :admin do
     resources :users, only: :index
 
     resources :backends, except: :show do
-      post :check, on: :member
+      member do
+        post :check
+        post :convert
+      end
     end
+    get 'servers/overview', to: 'server_overview#show', as: :server_overview
+    get 'servers/accuracy', to: 'server_overview#accuracy', as: :server_accuracy
+    resources :source_credentials, only: %i[index create destroy], path: 'tokens'
     resource :privacy_notice, only: %i[edit update]
     resource :app_setting, only: %i[edit update]
     resources :reports, only: %i[index show update] do
@@ -67,10 +90,22 @@ Rails.application.routes.draw do
         get :models
         post :check_models
         post :install_models
+        get :requirements
+        patch :requirements, action: :update_requirements
+        post :prepare_servers
       end
     end
 
     constraints(AdminConstraint) { mount Sidekiq::Web => 'sidekiq' }
+  end
+
+  mount Agent::WebsocketApp, at: '/api/agent/ws'
+
+  namespace :api do
+    namespace :agent do
+      get 'jobs/:job_id/inputs/:input_id', to: 'jobs#input', as: :job_input
+      post 'jobs/:job_id/outputs', to: 'jobs#outputs', as: :job_outputs
+    end
   end
 
   root to: redirect('/image')

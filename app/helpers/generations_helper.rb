@@ -1,4 +1,6 @@
 module GenerationsHelper
+  include AgentProgressHelper
+
   STATUS_BADGES = {
     'queued' => %w[secondary Queued],
     'running' => %w[primary Generating…],

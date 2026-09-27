@@ -6,7 +6,19 @@ class User < ApplicationRecord
   has_many :reviewed_report_cases, class_name: 'ReportCase', foreign_key: :reviewed_by_id, dependent: :nullify,
                                    inverse_of: :reviewed_by
 
+  has_many :owned_backends, class_name: 'Backend', foreign_key: :owner_user_id, dependent: :nullify,
+                            inverse_of: :owner_user
+  has_many :backend_shares, dependent: :delete_all
+  has_many :shared_backends, through: :backend_shares, source: :backend
+  has_many :source_credentials, foreign_key: :owner_user_id, dependent: :delete_all, inverse_of: :owner_user
+
+  BACKEND_AFFINITIES = {
+    'auto' => 'Fastest available', 'prefer_mine' => 'Prefer my servers',
+    'mine_only' => 'Only my servers', 'any' => 'Any server'
+  }.freeze
+
   validates :provider, :uid, presence: true
+  validates :backend_affinity, inclusion: { in: BACKEND_AFFINITIES.keys }
   validates :uid, uniqueness: { scope: :provider }
   validates :default_aspect_ratio, inclusion: { in: Generation::ASPECT_RATIOS }
   validate :preferred_backend_is_enabled

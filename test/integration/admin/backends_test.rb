@@ -130,5 +130,15 @@ module Admin
 
       assert_response :not_found
     end
+
+    test 'switching a legacy backend to the agent shows a key once' do
+      sign_in_as users(:admin)
+      post convert_admin_backend_path(@backend)
+
+      assert_response :created
+      assert_predicate @backend.reload, :agent?
+      assert_match(/cmf_[0-9A-Za-z]{43}/, response.body)
+      assert_equal 1, @backend.backend_keys.active.count
+    end
   end
 end

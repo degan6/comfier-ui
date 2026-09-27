@@ -59,3 +59,10 @@ Rails/StrongParametersExpect:
 
 Minitest/MultipleAssertions:
   Max: 8
+
+Naming/MethodParameterName:
+  AllowedNames: [as, at, by, cc, db, id, if, in, io, ip, of, on, os, pp, to, ms, op, ui, x, y]
+
+# Compare-and-set transitions (agent_transition!, dispatch!) report whether they won.
+Naming/PredicateMethod:
+  AllowBangMethods: true

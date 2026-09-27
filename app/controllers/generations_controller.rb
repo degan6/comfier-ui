@@ -97,7 +97,7 @@ class GenerationsController < ApplicationController
 
   def generation_params
     permitted = params.expect(generation: %i[workflow_id prompt negative_prompt seed aspect_ratio duration input_image
-                                             quality cfg_level denoise lyrics batch_size])
+                                             quality cfg_level denoise lyrics batch_size pinned_backend_id])
     permitted[:denoise] = permitted[:denoise].to_f / 100.0 if permitted[:denoise].present?
     permitted
   end

@@ -4,8 +4,19 @@ class WorkflowGraphJson
 
   def self.normalize(text) = new(text).normalize
 
+  # Uploaded files often arrive as ASCII-8BIT; views need UTF-8 strings.
+  def self.utf8_string(text)
+    str = text.to_s.dup
+    return str if str.encoding == Encoding::UTF_8 && str.valid_encoding?
+
+    str = str.force_encoding(Encoding::UTF_8)
+    return str if str.valid_encoding?
+
+    str.encode(Encoding::UTF_8, invalid: :replace, undef: :replace)
+  end
+
   def initialize(text)
-    @text = text.to_s
+    @text = self.class.utf8_string(text)
   end
 
   def normalize # rubocop:disable Metrics/MethodLength -- small scanner; splitting would obscure the state machine

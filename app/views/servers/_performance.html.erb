@@ -1,0 +1,33 @@
+<div class="h-section-label mt-4">Performance</div>
+<% if stats.blank? %>
+  <p class="text-13 text-secondary">Timings appear after this server finishes a few jobs.</p>
+<% else %>
+  <% attempts = backend.job_attempts.where(created_at: 30.days.ago..).group(:outcome).count %>
+  <% total = attempts.values.sum %>
+  <% failure_rate = total.positive? ? (attempts.slice('failed', 'lost', 'timeout').values.sum.to_f / total) : 0 %>
+  <% errors = PredictionLog.where(backend:, created_at: 30.days.ago..).filter_map(&:abs_pct_error) %>
+  <div class="text-12 text-secondary mb-2">
+    Last 30 days: <span class="num text-body"><%= total %></span> attempts ·
+    <span class="num <%= failure_rate > 0.1 ? 'text-danger fw-medium' : 'text-body' %>"><%= (failure_rate * 100).round %>%</span> failed
+    <% if errors.any? %>· predictions off by <span class="num text-body"><%= errors.sort[errors.size / 2].round %>%</span> (median)<% end %>
+  </div>
+  <table class="table table-compact align-middle">
+    <thead>
+      <tr><th>Style</th><th>Models</th><th class="num">Samples</th><th class="num">Typical</th><th class="num">Slow (p90)</th><th class="num">Per unit</th></tr>
+    </thead>
+    <tbody>
+      <% stats.each do |stat| %>
+        <% model = stat.model %>
+        <% units = stat.median_work_units || 1 %>
+        <tr>
+          <td><%= stat.workflow&.name || stat.structure_hash.first(8) %></td>
+          <td class="text-12 <%= 'text-secondary' if stat.warm %>"><%= stat.warm ? 'Loaded' : 'Cold start' %></td>
+          <td class="num"><%= stat.n %></td>
+          <td class="num"><%= short_duration(model.p50(units)) %></td>
+          <td class="num text-secondary"><%= short_duration(model.p90(units)) %></td>
+          <td class="num text-secondary"><%= short_duration(model.per_unit_ms) %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>

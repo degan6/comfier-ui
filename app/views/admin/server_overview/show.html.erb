@@ -1,0 +1,58 @@
+<% content_for :title, 'Server overview' %>
+
+<% online = @servers.count { Agent::Presence.online?(it) } %>
+<div class="d-flex align-items-end justify-content-between mb-3">
+  <div>
+    <h1 class="h-page-title mb-0">Server overview</h1>
+    <div class="text-13 text-secondary mt-1">
+      <span class="text-body num"><%= @servers.size %></span> servers ·
+      <span class="text-success num"><%= online %></span> online ·
+      <span class="text-body num"><%= @running_total %></span> running ·
+      <span class="<%= @queue_total.positive? ? 'text-body' : 'text-secondary' %> num"><%= @queue_total %></span> waiting
+      <% if @flapping.any? %> · <span class="text-warning num"><%= @flapping.size %></span> flapping<% end %>
+    </div>
+  </div>
+  <%= link_to 'Prediction accuracy', admin_server_accuracy_path, class: 'btn btn-outline-secondary btn-sm' %>
+</div>
+
+<div class="mb-4">
+  <div class="text-12 text-secondary mb-1">Jobs completed per hour, last 24 hours</div>
+  <div style="height: 140px">
+    <canvas data-controller="chart" data-chart-type-value="bar"
+            data-chart-data-value="<%= @jobs_per_hour.to_json %>" aria-label="Jobs per hour chart"></canvas>
+  </div>
+</div>
+
+<table class="table table-compact table-hover align-middle">
+  <thead>
+    <tr>
+      <th class="w-status"></th><th>Name</th><th>Owner</th><th>GPU</th><th class="num">Waiting</th>
+      <th class="num">Failed (7d)</th><th class="num">Prediction error</th><th class="num">Speed</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @servers.each do |server| %>
+      <% failed, total = @failure_rates[server.id] %>
+      <% rate = total.to_i.positive? ? failed.to_f / total : 0 %>
+      <% accuracy = @accuracy[server.id] %>
+      <% waiting = server.generations.agent_waiting.count %>
+      <tr class="row-link" data-controller="row-link" data-row-link-href-value="<%= server_path(server) %>">
+        <td><%= server_availability(server) %></td>
+        <td>
+          <%= link_to server.name, server_path(server), class: 'text-body fw-medium' %>
+          <% if @flapping.include?(server) %><div class="text-12 text-warning">Key in use on two machines</div><% end %>
+        </td>
+        <td class="text-12 text-secondary"><%= server.owner_user&.display_name || 'Admin' %></td>
+        <td class="text-12"><%= gpu_line(server) %></td>
+        <td class="num <%= 'text-secondary' if waiting.zero? %>"><%= waiting %></td>
+        <td class="num <%= rate > 0.1 ? 'text-danger fw-medium' : 'text-secondary' %>">
+          <%= total.to_i.positive? ? "#{(rate * 100).round}%" : '—' %>
+        </td>
+        <td class="num <%= accuracy && accuracy[:median] > 50 ? 'fw-medium' : 'text-secondary' %>">
+          <%= accuracy ? "#{accuracy[:median]}%" : '—' %>
+        </td>
+        <td class="num text-12"><%= speed_label(server) %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

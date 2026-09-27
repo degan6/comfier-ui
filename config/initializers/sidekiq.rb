@@ -7,6 +7,8 @@ Sidekiq.configure_server do |config|
   config.on(:startup) do
     Sidekiq.logger.info("Sidekiq #{Sidekiq::VERSION} started (Rails #{Rails.env}, Redis #{redis_url})")
     verify_active_storage!
+    schedule = Rails.root.join('config/schedule.yml')
+    Sidekiq::Cron::Job.load_from_hash!(YAML.load_file(schedule), source: 'schedule') if schedule.exist?
   end
 end
 

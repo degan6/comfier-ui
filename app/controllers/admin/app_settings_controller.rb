@@ -17,7 +17,7 @@ module Admin
 
     def settings_params
       params.expect(app_setting: %i[email_notification_attachment_max_mb slack_notification_attachment_max_mb
-                                    report_auto_hide_threshold])
+                                    report_auto_hide_threshold allow_user_backends])
     end
   end
 end

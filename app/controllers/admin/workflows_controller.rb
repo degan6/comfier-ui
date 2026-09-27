@@ -1,12 +1,13 @@
 module Admin
   class WorkflowsController < BaseController # rubocop:disable Metrics/ClassLength
-    before_action :set_workflow, only: %i[edit update destroy models check_models install_models]
+    before_action :set_workflow, only: %i[edit update destroy models check_models install_models requirements
+                                          update_requirements prepare_servers]
     before_action :load_model_status, only: :models
 
     def index
       @workflows = Workflow.ordered.group_by(&:kind)
       @usage_counts = Generation.group(:workflow_id).count
-      @backends = Backend.enabled.ordered.to_a
+      @backends = Backend.legacy.enabled.ordered.to_a
     end
 
     def new
@@ -67,26 +68,58 @@ module Admin
 
     def check_models
       directories = @workflow.required_models.map(&:directory).uniq
-      unreachable = Backend.enabled.ordered.reject { it.refresh_inventory!(directories) }
+      unreachable = Backend.legacy.enabled.ordered.reject { it.refresh_inventory!(directories) }
       notice = unreachable.any? ? "Couldn't reach #{unreachable.map(&:name).to_sentence}." : 'Checked every backend.'
       redirect_to edit_admin_workflow_path(@workflow, anchor: 'models'), notice:, status: :see_other
     end
 
     def install_models
-      backend = Backend.enabled.find(params[:backend_id])
-      outcome = ModelInstaller.queue(backend, backend.missing_models(@workflow))
+      backend = Backend.legacy.enabled.find(params[:backend_id])
+      outcome = Backends::Runner.for_backend(backend).download(backend, backend.missing_models(@workflow))
       redirect_to edit_admin_workflow_path(@workflow, anchor: 'models'), notice: install_notice(backend, outcome),
                                                                          status: :see_other
     end
 
+    # Agent-server requirements (editable) and which servers can run the workflow.
+    def requirements
+      @models = @workflow.workflow_models
+      @servers = Backend.agent.kept.ordered.to_a
+      @availability = @workflow.workflow_availabilities.index_by(&:backend_id)
+    end
+
+    def update_requirements
+      WorkflowRequirementsEditor.new(@workflow).apply!(requirement_rows, @workflow.agent_requirements)
+      redirect_to requirements_admin_workflow_path(@workflow), notice: 'Saved the model list.', status: :see_other
+    end
+
+    # Queues every missing model on the chosen servers.
+    def prepare_servers
+      servers = Backend.agent.kept.where(id: Array(params[:backend_ids]))
+      queued = servers.sum do |backend|
+        models = Agent::Availability.compute(@workflow, backend).models
+        Agent::DownloadPlanner.manual!(backend, models, user: current_user).size
+      end
+      redirect_to requirements_admin_workflow_path(@workflow),
+                  notice: "Queued #{helpers.pluralize(queued,
+                                                      'download')} on #{helpers.pluralize(servers.size, 'server')}.",
+                  status: :see_other
+    end
+
     private
+
+    def requirement_rows
+      rows = params[:models]
+      return [] unless rows.is_a?(ActionController::Parameters)
+
+      rows.each_value.map { it.permit(:id, :folder, :filename, :url, :sha256, :remove).to_h }
+    end
 
     def set_workflow
       @workflow = Workflow.find(params[:id])
     end
 
     def load_model_status
-      @backends = Backend.enabled.ordered.to_a
+      @backends = Backend.legacy.enabled.ordered.to_a
       @downloads = ModelDownload.where(backend: @backends).recent
                                 .group_by { [it.backend_id, it.directory, it.name] }.transform_values(&:first)
     end

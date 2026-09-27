@@ -6,6 +6,17 @@
   <%= backend_status_dot(@backend) %>
 </div>
 
+<% if @backend.legacy? %>
+  <div class="status-panel status-attention mb-3 d-flex justify-content-between align-items-center gap-3">
+    <div class="text-13">
+      <div class="fw-medium">Switch to the Comfier Agent</div>
+      <div class="text-secondary">The agent connects out to Comfier, so ComfyUI needn't be reachable, and it can download any model and report progress.</div>
+    </div>
+    <%= button_to 'Switch', convert_admin_backend_path(@backend), class: 'btn btn-outline-secondary btn-sm',
+                  form: { data: { turbo: false, turbo_confirm: "Switch #{@backend.name} to the agent? Its history is kept." } } %>
+  </div>
+<% end %>
+
 <%= render 'form', backend: @backend %>
 
 <div class="text-12 text-secondary mt-5">

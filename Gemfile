@@ -18,6 +18,7 @@ gem 'tzinfo-data', platforms: %i[windows jruby]
 # Background jobs and Action Cable. Action Cable's Redis adapter (Rails 8.1.3) requires redis < 6.
 gem 'redis', '>= 4', '< 6'
 gem 'sidekiq', '~> 8.1'
+gem 'sidekiq-cron', '~> 2.3'
 
 # SSO via Authentik (OpenID Connect)
 gem 'omniauth', '~> 2.1'
@@ -25,6 +26,10 @@ gem 'omniauth_openid_connect', '~> 0.8'
 gem 'omniauth-rails_csrf_protection', '~> 2.0'
 
 gem 'pagy', '~> 43.6'
+
+# Agent WebSocket endpoint (Rack hijack) and protocol validation against protocol/agent-v1.schema.json
+gem 'faye-websocket', '~> 0.11'
+gem 'json_schemer', '~> 2.4'
 
 group :development, :test do
   gem 'brakeman', require: false

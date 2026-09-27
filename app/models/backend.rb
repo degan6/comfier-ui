@@ -1,30 +1,88 @@
-# A ComfyUI server that generations can be sent to. Configured by admins.
-class Backend < ApplicationRecord
+# A ComfyUI server that generations can be sent to. Legacy servers are called over HTTP by the
+# frontend; agent servers run the Comfier Agent node and connect to the frontend themselves.
+class Backend < ApplicationRecord # rubocop:disable Metrics/ClassLength
   encrypts :auth_token
 
+  CONNECTION_KINDS = %w[legacy agent].freeze
+  VISIBILITIES = %w[private shared public].freeze
+  AUTO_DOWNLOAD_POLICIES = %w[off owner_jobs all_jobs].freeze
+
+  belongs_to :owner_user, class_name: 'User', optional: true
+  has_many :backend_keys, dependent: :delete_all
+  has_many :backend_shares, dependent: :delete_all
+  has_many :shared_users, through: :backend_shares, source: :user
+  has_many :backend_models, dependent: :delete_all
+  has_one :backend_inventory, dependent: :delete
+  has_many :backend_object_infos, dependent: :delete_all
+  has_many :workflow_availabilities, dependent: :delete_all
   has_many :generations, dependent: :nullify
   has_many :model_downloads, dependent: :delete_all
+  has_many :job_attempts, dependent: :nullify
+  has_one :backend_speed, dependent: :delete
+  has_many :perf_stats, dependent: :delete_all
+  has_many :transfer_stats, dependent: :delete_all
+  has_many :backend_load_minutes, dependent: :delete_all
+  has_many :backend_load_hours, dependent: :delete_all
   has_many :preferring_users, class_name: 'User', foreign_key: :preferred_backend_id,
                               inverse_of: :preferred_backend, dependent: :nullify
 
-  normalizes :base_url, with: ->(url) { url.strip.chomp('/') }
+  normalizes :base_url, with: ->(url) { url.to_s.strip.chomp('/').presence }
   normalizes :auth_token, with: ->(token) { token.strip.presence }
 
-  validates :name, presence: true, uniqueness: { case_sensitive: false }
-  validates :base_url, presence: true
-  validate :base_url_is_http
+  validates :name, presence: true, uniqueness: { case_sensitive: false }, length: { maximum: 80 }
+  validates :description, length: { maximum: 500 }
+  validates :connection_kind, inclusion: { in: CONNECTION_KINDS }
+  validates :visibility, inclusion: { in: VISIBILITIES }
+  validates :auto_download_policy, inclusion: { in: AUTO_DOWNLOAD_POLICIES }
+  validates :max_queued_per_other_user, numericality: { only_integer: true, in: 0..1000 }
+  validates :base_url, presence: true, if: :legacy?
+  validate :base_url_is_http, if: :legacy?
 
-  scope :enabled, -> { where(enabled: true) }
+  scope :enabled, -> { where(enabled: true, deleted_at: nil) }
+  scope :kept, -> { where(deleted_at: nil) }
   scope :ordered, -> { order(:name) }
   scope :unhealthy, -> { where(last_check_ok: false) }
+  scope :agent, -> { where(connection_kind: 'agent') }
+  scope :legacy, -> { where(connection_kind: 'legacy') }
+
+  def legacy? = connection_kind == 'legacy'
+  def agent? = connection_kind == 'agent'
+  def deleted? = deleted_at.present?
+
+  def owned_by?(user) = user.present? && owner_user_id == user.id
+
+  def unhealthy? = legacy? ? last_check_ok == false : !Agent::Presence.online?(self)
 
   def client(**) = Comfyui::Client.new(self, **)
 
-  def unhealthy? = last_check_ok == false
+  # Creates a key and returns the secret, which is never retrievable again.
+  def issue_agent_key!
+    full, prefix, digest = Agent::KeyService.generate!
+    backend_keys.create!(prefix:, key_hash: digest)
+    full
+  end
+
+  def allows_workflow?(workflow)
+    allowed_workflow_ids.blank? || Array(allowed_workflow_ids).map(&:to_i).include?(workflow.id)
+  end
+
+  def allows_auto_download_for?(user)
+    case auto_download_policy
+    when 'all_jobs' then true
+    when 'owner_jobs' then owned_by?(user)
+    else false
+    end
+  end
+
+  def speed_index = backend_speed&.speed_index || 1.0
+
+  def online? = agent? ? Agent::Presence.online?(self) : last_check_ok != false
 
   # Pings the server and records the outcome so admins can see which backends are reachable.
   # A reachable server also gets its model inventory and download options refreshed.
   def check!
+    return Agent::Presence.online?(self) if agent?
+
     stats = client(open_timeout: 3, read_timeout: 10).system_stats
     update!(last_checked_at: Time.current, last_check_ok: true, last_check_message: describe_stats(stats))
     refresh_inventory!
@@ -37,6 +95,8 @@ class Backend < ApplicationRecord
   # Records which files are in the given models folders, and whether models can be downloaded
   # (through the Comfier downloader node or ComfyUI-Manager). Returns false if the server can't be reached.
   def refresh_inventory!(directories = Workflow.model_directories)
+    return request_agent_inventory! if agent?
+
     api = client(open_timeout: 3, read_timeout: 20)
     listed = directories.index_with { api.model_files(it) }
     downloader = api.downloader_node?
@@ -51,6 +111,8 @@ class Backend < ApplicationRecord
 
   # :installed, :missing, or :unknown when the folder hasn't been checked yet.
   def model_status(requirement)
+    return agent_model_status(requirement) if agent?
+
     files = model_inventory[requirement.directory]
     return :unknown if files.nil?
 
@@ -59,32 +121,58 @@ class Backend < ApplicationRecord
 
   def missing_models(workflow) = workflow.required_models.select { model_status(it) == :missing }
 
-  def can_download_models? = downloader_available? || manager_version.present?
+  def can_download_models? = agent? ? model_downloads_enabled? : downloader_available? || manager_version.present?
 
-  # How this backend would fetch a file: :node needs a download link, :manager needs an exact catalog entry.
+  # How this backend would fetch a file: :agent and :node need a download link, :manager needs an
+  # exact catalog entry.
   def download_route(requirement)
-    if downloader_available?
-      :node if requirement.url
-    elsif manager_version.present?
-      :manager if manager_catalog.key?(requirement.path)
+    return manager_catalog.key?(requirement.path) ? :manager : nil if manager_only?
+    return unless requirement.url
+
+    if agent? then :agent if model_downloads_enabled?
+    elsif downloader_available? then :node
     end
   end
+
+  def manager_only? = !agent? && !downloader_available? && manager_version.present?
 
   def downloadable_models(workflow) = missing_models(workflow).select { download_route(it) }
 
   # Why download_route is nil, in words an admin can act on.
   def download_blocker
-    if downloader_available?
+    if agent?
+      model_downloads_enabled? ? 'No download link. Add one under Models.' : "#{name} doesn't allow model downloads."
+    elsif downloader_available?
       'No download link. Add one under Models.'
     elsif manager_version.present?
       "Not in ComfyUI-Manager's catalog, which is all Manager can download. " \
-        "Install the Comfier downloader node on #{name} to download any file."
+        "Switch #{name} to the Comfier Agent to download any file."
     else
-      "#{name} can't download models. Install the Comfier downloader node (see the README)."
+      "#{name} can't download models. Switch it to the Comfier Agent (see the README)."
+    end
+  end
+
+  def soft_delete!
+    transaction do
+      backend_keys.active.find_each(&:revoke!)
+      update!(deleted_at: Time.current, enabled: false, name: "#{name} (deleted #{id})")
     end
   end
 
   private
+
+  def agent_model_status(requirement)
+    return :unknown unless backend_inventory
+
+    present = Agent::ModelMatcher.new(backend_models.pluck(:folder, :filename))
+                                 .present?(requirement.directory, requirement.name)
+    present ? :installed : :missing
+  end
+
+  def request_agent_inventory!
+    Agent::Commands.send_message(id, { 'type' => 'inventory.refresh' })
+    true
+  end
 
   # Manager's catalog as "folder/file" => link.
   def fetch_manager_catalog(api)

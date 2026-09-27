@@ -1,0 +1,77 @@
+<% content_for :title, "#{@workflow.name} requirements" %>
+
+<div class="small text-secondary mb-2">
+  <%= link_to 'Workflows', admin_workflows_path, class: 'link-secondary' %> ·
+  <%= link_to @workflow.name, edit_admin_workflow_path(@workflow), class: 'link-secondary' %>
+</div>
+<div class="mb-3">
+  <h1 class="h-page-title mb-0">What <%= @workflow.name %> needs</h1>
+  <div class="text-13 text-secondary mt-1">
+    <span class="num text-body"><%= @models.size %></span> models ·
+    <span class="num text-body"><%= Array(@workflow.requirements_json&.dig('node_types')).size %></span> node types
+    <% review = @models.count { it.unknown_folder? || it.url.blank? } %>
+    <% if review.positive? %> · <span class="text-warning num"><%= review %></span> need a folder or link<% end %>
+  </div>
+</div>
+
+<div class="h-section-label">Models</div>
+<%= form_with url: requirements_admin_workflow_path(@workflow), method: :patch do %>
+  <table class="table table-compact align-middle">
+    <thead>
+      <tr><th>Folder</th><th>File</th><th>Download link</th><th>sha256</th><th class="num">Size</th><th>Source</th><th class="text-center">Remove</th></tr>
+    </thead>
+    <tbody>
+      <% (@models.to_a + [WorkflowModel.new]).each_with_index do |model, index| %>
+        <tr>
+          <td>
+            <%= hidden_field_tag "models[#{index}][id]", model.id %>
+            <%= text_field_tag "models[#{index}][folder]", model.folder, class: "form-control form-control-sm #{'is-invalid' if model.unknown_folder?}",
+                                                                         placeholder: 'checkpoints', aria: { label: 'Folder' } %>
+          </td>
+          <td><%= text_field_tag "models[#{index}][filename]", model.filename, class: 'form-control form-control-sm', aria: { label: 'File' } %></td>
+          <td><%= url_field_tag "models[#{index}][url]", model.url, class: "form-control form-control-sm #{'is-invalid' if model.persisted? && model.url.blank?}",
+                                                                   placeholder: 'https://huggingface.co/…/resolve/…', aria: { label: 'Download link' } %></td>
+          <td><%= text_field_tag "models[#{index}][sha256]", model.sha256, class: 'form-control form-control-sm font-monospace text-11', aria: { label: 'sha256' } %></td>
+          <td class="num text-12 <%= 'text-secondary' unless model.bytes %>"><%= human_bytes(model.bytes) %></td>
+          <td class="text-12 text-secondary"><%= model.persisted? ? model.source : 'new' %></td>
+          <td class="text-center">
+            <% if model.persisted? %><%= check_box_tag "models[#{index}][remove]", '1', false, class: 'form-check-input', aria: { label: 'Remove' } %><% end %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+  <%= submit_tag 'Save', class: 'btn btn-primary btn-sm' %>
+<% end %>
+
+<div class="h-section-label mt-4">Servers</div>
+<% if @servers.empty? %>
+  <p class="text-13 text-secondary">No agent servers yet.</p>
+<% else %>
+  <%= form_with url: prepare_servers_admin_workflow_path(@workflow) do %>
+    <table class="table table-compact align-middle">
+      <tbody>
+        <% @servers.each do |server| %>
+          <% record = @availability[server.id] %>
+          <tr>
+            <td class="w-status">
+              <% if record&.needs_downloads? %>
+                <%= check_box_tag 'backend_ids[]', server.id, true, id: "prepare_#{server.id}", class: 'form-check-input',
+                                                                    aria: { label: "Prepare #{server.name}" } %>
+              <% end %>
+            </td>
+            <td><%= link_to server.name, server_path(server), class: 'text-body' %></td>
+            <td><%= availability_cell(record) %></td>
+            <td class="text-12 text-secondary">
+              <%= Array(record&.details&.dig('reasons')).join('; ') %>
+              <% Array(record&.details&.dig('hints')).each do |hint| %><div class="text-warning"><%= hint %></div><% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+    <% if @availability.values.any?(&:needs_downloads?) %>
+      <%= submit_tag 'Prepare selected servers', class: 'btn btn-outline-secondary btn-sm' %>
+    <% end %>
+  <% end %>
+<% end %>
