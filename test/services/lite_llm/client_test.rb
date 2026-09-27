@@ -37,7 +37,15 @@ module LiteLlm
           .to_return(body: { choices: [{ message: { content: '{"ok":true}' } }] }.to_json)
 
         assert_equal '{"ok":true}', Client.chat(system: 'system rules', user: 'user payload')
+      end
+    end
 
+    test 'chat records an activity log entry on success' do
+      with_env('LITELLM_URL' => 'http://litellm.test/', 'LITELLM_MODEL' => 'gpt-test') do
+        stub_request(:post, 'http://litellm.test/v1/chat/completions')
+          .to_return(body: { choices: [{ message: { content: '{"ok":true}' } }] }.to_json)
+
+        Client.chat(system: 'system rules', user: 'user payload')
         log = ActivityLog.order(:id).last
 
         assert_equal 'llm_chat', log.kind

@@ -4,7 +4,8 @@ class ActivityLogTest < ActiveSupport::TestCase
   test 'search matches message and user email' do
     user = users(:alice)
     ActivityLog.create!(kind: :login, user:, message: 'Alice signed in', details: {}, created_at: Time.current)
-    ActivityLog.create!(kind: :logout, user: users(:bob), message: 'Bob signed out', details: {}, created_at: Time.current)
+    ActivityLog.create!(kind: :logout, user: users(:bob), message: 'Bob signed out', details: {},
+                        created_at: Time.current)
 
     assert_equal 1, ActivityLog.search('Alice').count
     assert_equal 1, ActivityLog.search(user.email).count

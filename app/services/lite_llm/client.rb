@@ -4,12 +4,16 @@ require 'json'
 module LiteLlm
   # OpenAI-compatible chat client for a LiteLLM proxy.
   class Client
+    include Http
+
     NETWORK_ERRORS = [
       Timeout::Error, SocketError, SystemCallError, EOFError, IOError,
       OpenSSL::SSL::SSLError, Net::HTTPBadResponse, Net::ProtocolError
     ].freeze
 
     AuditContext = Data.define(:user, :source)
+    ChatLog = Data.define(:audit, :request, :duration_ms, :success, :http_status, :response_body, :assistant_content,
+                          :error)
 
     def self.configured?
       url.present? && model.present?
@@ -37,35 +41,59 @@ module LiteLlm
     def chat(system:, user:, audit: nil, **)
       raise Error, 'LiteLLM is not configured (set LITELLM_URL and LITELLM_MODEL in .env)' unless self.class.configured?
 
-      body = request_body(system:, user:, **)
-      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      response = post_raw(completions_url, body)
-      duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round
-
-      unless response.is_a?(Net::HTTPSuccess)
-        log_chat(audit:, request: body, duration_ms:, success: false, http_status: response.code,
-                 response_body: response.body)
-        raise Error, "LiteLLM returned HTTP #{response.code}"
-      end
-
-      parsed = JSON.parse(response.body)
-      content = parsed.dig('choices', 0, 'message', 'content')
-      log_chat(audit:, request: body, duration_ms:, success: content.present?, http_status: response.code,
-               response_body: parsed, assistant_content: content)
-      raise Error, 'LiteLLM returned an empty reply' if content.blank?
-
-      content
-    rescue JSON::ParserError
-      log_chat(audit:, request: body, duration_ms:, success: false, http_status: response.code,
-               response_body: response.body, error: 'Invalid JSON response')
-      raise Error, 'LiteLLM returned something that isn\'t JSON'
+      @audit = audit
+      @body = request_body(system:, user:, **)
+      @started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      deliver_chat
     rescue *NETWORK_ERRORS => e
-      duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round if started
-      log_chat(audit:, request: body, duration_ms:, success: false, error: e.message)
+      record_chat(chat_log(success: false, duration_ms: elapsed_ms, error: e.message))
       raise Error, "Couldn't reach LiteLLM: #{e.message}"
     end
 
     private
+
+    def deliver_chat
+      response = post_json(completions_url, @body)
+      duration_ms = elapsed_ms
+      return handle_http_error(response, duration_ms) unless response.is_a?(Net::HTTPSuccess)
+
+      handle_success_body(response, duration_ms)
+    rescue JSON::ParserError
+      record_chat(chat_log(success: false, duration_ms:, http_status: response.code, response_body: response.body,
+                           error: 'Invalid JSON response'))
+      raise Error, 'LiteLLM returned something that isn\'t JSON'
+    end
+
+    def handle_http_error(response, duration_ms)
+      record_chat(chat_log(success: false, duration_ms:, http_status: response.code, response_body: response.body))
+      raise Error, "LiteLLM returned HTTP #{response.code}"
+    end
+
+    def handle_success_body(response, duration_ms)
+      parsed = JSON.parse(response.body)
+      content = parsed.dig('choices', 0, 'message', 'content')
+      record_chat(chat_log(success: content.present?, duration_ms:, http_status: response.code, response_body: parsed,
+                           assistant_content: content))
+      raise Error, 'LiteLLM returned an empty reply' if content.blank?
+
+      content
+    end
+
+    def elapsed_ms
+      ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - @started) * 1000).round
+    end
+
+    def chat_log(**attrs)
+      ChatLog.new(
+        audit: @audit, request: @body,
+        duration_ms: attrs.fetch(:duration_ms),
+        success: attrs.fetch(:success),
+        http_status: attrs[:http_status],
+        response_body: attrs[:response_body],
+        assistant_content: attrs[:assistant_content],
+        error: attrs[:error]
+      )
+    end
 
     def request_body(system:, user:, history: [], temperature: nil, json_schema: nil)
       {
@@ -87,46 +115,8 @@ module LiteLlm
       URI("#{self.class.url}/v1/chat/completions")
     end
 
-    def post_raw(uri, payload)
-      http(uri).request(build_request(uri, payload))
-    end
-
-    def build_request(uri, payload)
-      request = Net::HTTP::Post.new(uri)
-      request['Content-Type'] = 'application/json'
-      request['Authorization'] = "Bearer #{self.class.api_key}" if self.class.api_key.present?
-      request.body = JSON.generate(payload)
-      request
-    end
-
-    def http(uri)
-      Net::HTTP.start(uri.host, uri.port,
-                      use_ssl: uri.scheme == 'https', open_timeout: 5,
-                      read_timeout: self.class.timeout_seconds)
-    end
-
-    def log_chat(audit:, request:, duration_ms:, success:, http_status: nil, response_body: nil,
-                 assistant_content: nil, error: nil)
-      user = audit&.user
-      source = audit&.source.presence || 'lite_llm'
-      outcome = success ? 'succeeded' : 'failed'
-      ActivityLog.record(
-        kind: :llm_chat,
-        user:,
-        message: "LLM #{source} #{outcome} (#{duration_ms}ms)",
-        details: {
-          source:,
-          model: self.class.model,
-          endpoint: completions_url.to_s,
-          duration_ms:,
-          success:,
-          http_status:,
-          error:,
-          request:,
-          response: response_body,
-          assistant_content:
-        }.compact
-      )
+    def record_chat(entry)
+      ActivityRecorder.log(entry, endpoint: completions_url.to_s, model: self.class.model)
     end
   end
 end

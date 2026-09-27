@@ -1,5 +1,15 @@
 module Admin
   module ActivityLogsHelper
+    KIND_BADGE_VARIANTS = {
+      'login' => 'text-bg-success-subtle',
+      'login_failed' => 'text-bg-danger-subtle',
+      'logout' => 'text-bg-secondary-subtle',
+      'generation_succeeded' => 'text-bg-success-subtle',
+      'generation_failed' => 'text-bg-danger-subtle',
+      'generation_cancelled' => 'text-bg-warning-subtle',
+      'llm_chat' => 'text-bg-primary-subtle'
+    }.freeze
+
     KIND_LABELS = {
       'login' => 'Sign in',
       'login_failed' => 'Sign-in failed',
@@ -27,17 +37,8 @@ module Admin
     end
 
     def activity_log_kind_badge_classes(kind)
-      base = 'badge text-11 '
-      case kind
-      when 'login' then "#{base}text-bg-success-subtle"
-      when 'login_failed' then "#{base}text-bg-danger-subtle"
-      when 'logout' then "#{base}text-bg-secondary-subtle"
-      when 'generation_succeeded' then "#{base}text-bg-success-subtle"
-      when 'generation_failed' then "#{base}text-bg-danger-subtle"
-      when 'generation_cancelled' then "#{base}text-bg-warning-subtle"
-      when 'llm_chat' then "#{base}text-bg-primary-subtle"
-      else "#{base}text-bg-secondary-subtle"
-      end
+      variant = KIND_BADGE_VARIANTS.fetch(kind.to_s, 'text-bg-secondary-subtle')
+      "badge text-11 #{variant}"
     end
 
     def activity_log_details_json(log)
