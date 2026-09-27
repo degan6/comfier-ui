@@ -99,14 +99,14 @@ class AgentRuntime:
     async def _on_frontend_message(self, msg: dict[str, Any]) -> None:
         typ = msg.get("type")
         if typ == "_connected":
-            await self._send_hello()
-            await self._rescan_inventory(force=True)
-            await self._publish_status(force=True)
             if self.jobs:
                 # The frontend forgets open requests on every hello.
                 self.jobs.void_request()
-                if self.status.snapshot.accepting:
-                    await self.jobs.maybe_job_request(True)
+            await self._send_hello()
+            await self._rescan_inventory(force=True)
+            await self._publish_status(force=True)
+            if self.jobs and self.status.snapshot.accepting:
+                await self.jobs.maybe_job_request(True)
             return
         if typ == "job.assign" and self.jobs:
             await self.jobs.handle_assign(

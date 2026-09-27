@@ -241,7 +241,10 @@ class JobManager:
     ) -> None:
         job_id = msg["job_id"]
         request_id = msg.get("request_id")
-        if self.open_request_id is None or request_id != self.open_request_id:
+        matched = self.open_request_id is not None and request_id == self.open_request_id
+        # The frontend consumes its open request when it assigns, whichever id it used.
+        self.void_request()
+        if not matched:
             await self.send({
                 "type": "job.rejected",
                 "job_id": job_id,
@@ -249,7 +252,6 @@ class JobManager:
                 "detail": "no open job request",
             })
             return
-        self.void_request()
 
         if not accepting or self.active is not None:
             reason = "busy"

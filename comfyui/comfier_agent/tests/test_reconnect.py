@@ -52,6 +52,29 @@ async def test_hello_lists_the_running_job_and_downloads(agent):
 
 
 @pytest.mark.asyncio
+async def test_connecting_opens_exactly_one_job_request(agent):
+    await agent.start()
+    await asyncio.sleep(0.3)
+    assert len(agent.front.of_type("job.request")) == 1
+
+    start = len(agent.front.messages)
+    await agent.front.send(agent.assign("j_1"))
+    await agent.front.wait_for_types("job.accepted", timeout=8, after=start)
+
+
+@pytest.mark.asyncio
+async def test_an_assign_for_an_old_request_is_rejected_and_a_new_request_opened(agent):
+    await agent.start()
+    first = agent.front.of_type("job.request")[-1]["request_id"]
+    start = len(agent.front.messages)
+    await agent.front.send(agent.assign("j_4", request_id="r_stale"))
+
+    rejected, request = await agent.front.wait_for_types("job.rejected", "job.request", after=start)
+    assert rejected["reason"] == "busy"
+    assert request["request_id"] != first
+
+
+@pytest.mark.asyncio
 async def test_an_idle_reconnect_opens_a_fresh_job_request(agent):
     await agent.start()
     first = agent.front.of_type("job.request")[-1]["request_id"]
