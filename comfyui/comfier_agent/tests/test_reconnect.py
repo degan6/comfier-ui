@@ -52,6 +52,32 @@ async def test_hello_lists_the_running_job_and_downloads(agent):
 
 
 @pytest.mark.asyncio
+async def test_an_idle_reconnect_opens_a_fresh_job_request(agent):
+    await agent.start()
+    first = agent.front.of_type("job.request")[-1]["request_id"]
+
+    start = await reconnect(agent)
+    (request,) = await agent.front.wait_for_types("job.request", after=start)
+    assert request["request_id"] != first
+
+    start = len(agent.front.messages)
+    await agent.front.send(agent.assign("j_2"))
+    await agent.front.wait_for_types("job.accepted", timeout=8, after=start)
+
+
+@pytest.mark.asyncio
+async def test_a_rejected_assign_is_followed_by_a_new_job_request(agent):
+    await agent.start()
+    start = len(agent.front.messages)
+    missing = {"node_types": ["LoadImage"], "models": {"checkpoints": ["absent.safetensors"]}}
+    await agent.front.send(agent.assign("j_3", requires=missing))
+
+    rejected, request = await agent.front.wait_for_types("job.rejected", "job.request", after=start)
+    assert rejected["reason"] == "missing_models"
+    assert agent.front.messages.index(rejected) < agent.front.messages.index(request)
+
+
+@pytest.mark.asyncio
 async def test_cancel_for_an_unknown_job_is_confirmed(agent):
     await agent.start()
     start = len(agent.front.messages)

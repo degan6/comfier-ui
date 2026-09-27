@@ -96,6 +96,18 @@ module Agent
       assert_equal other.id, gen.reload.backend_id
     end
 
+    test 'a failed download leaves a mine_only job waiting for another own server that is starting' do
+      @alice.update!(backend_affinity: 'mine_only')
+      starting = create_agent_backend!(owner: @alice, name: 'Starting')
+      connect_agent!(starting)
+      gen = submit
+      download_event('model.download.failed', reason: 'http_error', detail: 'HTTP 500')
+      gen.reload
+
+      assert_equal 'routing', gen.agent_state
+      assert_equal 'waiting_for_server', gen.agent_phase
+    end
+
     test 'a shutdown during download queues it again' do
       submit
       download_event('model.download.failed', reason: 'cancelled_by_shutdown')

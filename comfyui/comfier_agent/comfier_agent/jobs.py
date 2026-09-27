@@ -21,6 +21,14 @@ from comfier_agent.transfer import UploadError, download_to_file, same_origin, u
 
 LOG = logging.getLogger("comfier_agent")
 
+# Folders ComfyUI treats as the same; matches Agent::ModelMatcher on the frontend.
+FOLDER_ALIASES = {
+    "unet": ("diffusion_models",),
+    "diffusion_models": ("unet",),
+    "clip": ("text_encoders",),
+    "text_encoders": ("clip",),
+}
+
 SANITIZE = re.compile(r"[^A-Za-z0-9._-]+")
 
 MIME_EXTRA = {
@@ -158,6 +166,24 @@ def sweep_stale_inputs(config: AgentConfig, max_age_s: int = 86400) -> None:
             pass
 
 
+
+def find_missing_models(required: dict[str, list[str]], installed: dict[str, list[str]]) -> list[str]:
+    """Required models not installed. A folder's aliases count, and "unknown" matches any folder by path or basename."""
+    missing: list[str] = []
+    for folder, names in required.items():
+        if folder == "unknown":
+            paths = {n for files in installed.values() for n in files}
+            bases = {os.path.basename(n) for n in paths}
+            missing += [
+                f"{folder}/{name}" for name in names if name not in paths and os.path.basename(name) not in bases
+            ]
+            continue
+        have = set()
+        for f in (folder, *FOLDER_ALIASES.get(folder, ())):
+            have.update(installed.get(f) or [])
+        missing += [f"{folder}/{name}" for name in names if name not in have]
+    return missing
+
 @dataclass
 class JobContext:
     job_id: str
@@ -248,13 +274,7 @@ class JobManager:
                 "detail": ", ".join(missing_nodes)[:MAX_DETAIL],
             })
             return
-        req_models = requires.get("models") or {}
-        missing_models: list[str] = []
-        for folder, names in req_models.items():
-            have = set(inventory.models.get(folder) or [])
-            for name in names:
-                if name not in have:
-                    missing_models.append(f"{folder}/{name}")
+        missing_models = find_missing_models(requires.get("models") or {}, inventory.models)
         if missing_models:
             await self.send({
                 "type": "job.rejected",

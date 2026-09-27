@@ -102,8 +102,11 @@ class AgentRuntime:
             await self._send_hello()
             await self._rescan_inventory(force=True)
             await self._publish_status(force=True)
-            if self.jobs and self.status.snapshot.accepting:
-                await self.jobs.maybe_job_request(True)
+            if self.jobs:
+                # The frontend forgets open requests on every hello.
+                self.jobs.void_request()
+                if self.status.snapshot.accepting:
+                    await self.jobs.maybe_job_request(True)
             return
         if typ == "job.assign" and self.jobs:
             await self.jobs.handle_assign(
@@ -113,6 +116,8 @@ class AgentRuntime:
                 accepting_reason=self.status.snapshot.accepting_reason,
             )
             await self._publish_status(force=True)
+            if self.status.snapshot.accepting:
+                await self.jobs.maybe_job_request(True)
         elif typ == "job.cancel" and self.jobs:
             await self.jobs.handle_cancel(msg["job_id"])
             await self._publish_status(force=True)

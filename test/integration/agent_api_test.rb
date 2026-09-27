@@ -86,6 +86,27 @@ class AgentApiTest < ActionDispatch::IntegrationTest
     assert_response :content_too_large
   end
 
+  test 'uploads from an earlier attempt do not count toward the job limit' do
+    @generation.update!(dispatched_at: 1.minute.ago)
+    @generation.generation_outputs.create!(upload_id: 'u_old', backend: @backend, node: '9', filename: 'old.png',
+                                           kind: 'image', bytes: 10.gigabytes, created_at: 1.hour.ago)
+    upload(file_fixture('pixel.png').open, 'retry.png')
+
+    assert_response :success
+  end
+
+  test 'completing discards uploads from earlier attempts' do
+    @generation.generation_outputs.create!(upload_id: 'u_old', backend: @backend, node: '9', filename: 'old.png',
+                                           kind: 'image', bytes: 1)
+    upload(file_fixture('pixel.png').open, 'a.png')
+    upload_id = response.parsed_body['upload_id']
+    agent_message(@backend, { 'type' => 'job.completed', 'job_id' => "j_#{@generation.id}",
+                              'outputs' => [{ 'upload_id' => upload_id }] })
+
+    assert_equal [upload_id], @generation.generation_outputs.pluck(:upload_id)
+    assert_equal 1, @generation.reload.outputs.count
+  end
+
   test 'another server cannot upload to this job' do
     other = create_agent_backend!(owner: @alice, name: 'Other')
     upload(file_fixture('pixel.png').open, 'a.png', token: create_agent_key!(other))

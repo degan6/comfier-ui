@@ -53,8 +53,10 @@ module Api
         id && Generation.find_by(id:, backend_id: current_backend.id)
       end
 
+      # Only this attempt's uploads count; a retried job uploads its files again.
       def over_job_limit?(generation, file)
-        generation.generation_outputs.sum(:bytes) + file.size > ::Agent::Outputs.max_job_bytes
+        uploaded = generation.generation_outputs.where(created_at: generation.dispatched_at..).sum(:bytes)
+        uploaded + file.size > ::Agent::Outputs.max_job_bytes
       end
 
       def store_output!(generation, file, verdict)

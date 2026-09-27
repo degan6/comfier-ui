@@ -89,6 +89,16 @@ module Agent
         blob = ActiveStorage::Blob.find_by(key: output.storage_key)
         gen.outputs.attach(blob) if blob && gen.outputs.none? { it.blob_id == blob.id }
       end
+      discard_earlier_attempts!(gen, outputs)
+    end
+
+    # Uploads from attempts that didn't finish are never attached, so their files would otherwise stay
+    # in storage.
+    def discard_earlier_attempts!(gen, kept)
+      stale = gen.generation_outputs.where.not(id: kept.map(&:id))
+      keys = stale.filter_map(&:storage_key)
+      ActiveStorage::Blob.where(key: keys).where.missing(:attachments).find_each(&:purge_later)
+      stale.delete_all
     end
   end
 end

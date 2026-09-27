@@ -50,6 +50,15 @@ module Agent
       assert_equal 1, @socket.of_type('job.assign').size
     end
 
+    test 'status heartbeats keep an idle server request open past its expiry' do
+      OpenRequest.set(@backend.id, 'r_idle')
+      travel 50.minutes
+      agent_status(@backend)
+      travel 50.minutes
+
+      assert_equal 'r_idle', OpenRequest.get(@backend.id)
+    end
+
     test 'a stale request id does not dispatch' do
       queued_job
       OpenRequest.set(@backend.id, 'r_new')

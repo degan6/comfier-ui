@@ -103,11 +103,11 @@ module Agent
       Timeline.schedule(backend)
     end
 
-    # Jobs that needed this file try another server, or fail with the download's reason.
+    # Jobs that needed this file try another server, keep waiting for the user's own server, or fail
+    # with the download's reason.
     def reroute_waiting!(download, message)
       waiting_for(download).find_each do |gen|
         JobLifecycle.reroute!(gen, exclude: download.backend, from: 'waiting_models')
-        JobLifecycle.fail!(gen, message, from: 'routing') if gen.reload.agent_state == 'routing'
         gen.reload.update_columns(error_message: message) if gen.agent_state == 'failed' # rubocop:disable Rails/SkipsModelValidations
       end
     end

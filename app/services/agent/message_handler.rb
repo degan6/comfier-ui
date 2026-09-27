@@ -91,7 +91,7 @@ module Agent
     def handle_status(message)
       previous = Presence.status(@backend)
       Presence.record_status!(@backend, message)
-      OpenRequest.clear(@backend.id) if message['accepting'] == false
+      message['accepting'] == false ? OpenRequest.clear(@backend.id) : OpenRequest.refresh(@backend.id)
       persist_status!(message)
       LoadMinute.record!(@backend, message, previous:)
       Warmth.note_status!(@backend, message)

@@ -8,7 +8,7 @@ from fake_comfy import FakeComfy
 from fake_frontend import FakeFrontend
 
 from comfier_agent.config import AgentConfig
-from comfier_agent.jobs import JobManager, delete_job_inputs
+from comfier_agent.jobs import JobManager, delete_job_inputs, find_missing_models
 from comfier_agent.runtime import AgentRuntime
 
 
@@ -170,6 +170,21 @@ async def test_job_gating_rejections(folder_paths_stub):
         inventory=Inv(),
     )
     assert sent[-1]["reason"] == "missing_nodes"
+
+
+def test_model_check_allows_folder_aliases_and_unknown_folders():
+    installed = {
+        "diffusion_models": ["wan.safetensors"],
+        "clip": ["t5.safetensors"],
+        "loras": ["sub/style.safetensors"],
+    }
+    required = {
+        "unet": ["wan.safetensors"],
+        "text_encoders": ["t5.safetensors"],
+        "unknown": ["style.safetensors", "gone.safetensors"],
+        "checkpoints": ["wan.safetensors"],
+    }
+    assert find_missing_models(required, installed) == ["unknown/gone.safetensors", "checkpoints/wan.safetensors"]
 
 
 def test_cleanup_deletes_only_job_inputs(folder_paths_stub):
