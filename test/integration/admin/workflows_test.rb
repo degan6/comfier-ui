@@ -338,7 +338,7 @@ module Admin
       get models_admin_workflow_path(workflows(:sd_image))
 
       assert_select 'button', text: /Install/, count: 0
-      assert_select '.status-panel li', text: /Not in ComfyUI-Manager's catalog.*downloader node on GPU box/m
+      assert_select '.status-panel li', text: /Not in ComfyUI-Manager's catalog.*Switch GPU box to the Comfier Agent/m
 
       catalog = { 'checkpoints/v1-5-pruned-emaonly-fp16.safetensors' => 'https://hf.test/sd15' }
       backends(:gpu).update!(manager_catalog: catalog)

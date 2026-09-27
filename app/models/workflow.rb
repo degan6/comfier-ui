@@ -23,6 +23,10 @@ class Workflow < ApplicationRecord # rubocop:disable Metrics/ClassLength
   enum :kind, GenerationKind.enum_values, validate: true
 
   has_many :generations, dependent: :nullify
+  has_many :workflow_models, -> { order(:folder, :filename) }, dependent: :delete_all, inverse_of: :workflow
+  has_many :workflow_availabilities, dependent: :delete_all
+
+  after_save_commit :extract_requirements, if: -> { requirements_inputs_changed? }
 
   validates :name, presence: true, uniqueness: { scope: :kind, case_sensitive: false }
   validates :base_resolution, numericality: { only_integer: true, in: 64..4096 }
@@ -40,11 +44,12 @@ class Workflow < ApplicationRecord # rubocop:disable Metrics/ClassLength
   def kind_info = GenerationKind.find(kind)
 
   def graph_json
-    @graph_json || (graph.present? ? JSON.pretty_generate(graph) : '')
+    raw = @graph_json || (graph.present? ? JSON.pretty_generate(graph) : '')
+    WorkflowGraphJson.utf8_string(raw)
   end
 
   def graph_json=(text)
-    @graph_json = text.to_s
+    @graph_json = WorkflowGraphJson.utf8_string(text)
     @graph_json_error = nil
     self.graph = JSON.parse(WorkflowGraphJson.normalize(@graph_json))
   rescue JSON::ParserError => e
@@ -96,6 +101,7 @@ class Workflow < ApplicationRecord # rubocop:disable Metrics/ClassLength
     data = JSON.parse(json.to_s)
     return @models_import_error = UI_EXPORT_NEEDED unless WorkflowModels.ui_format?(data)
 
+    self.ui_graph = data
     imported = WorkflowModels.from_ui_workflow(data)
     current = extra_models.map { ModelRequirement.from_h(it) }
     self.extra_models = WorkflowModels.merge(current, imported).map(&:to_h)
@@ -105,7 +111,20 @@ class Workflow < ApplicationRecord # rubocop:disable Metrics/ClassLength
     @models_import_error = "isn't valid JSON: #{e.message.truncate(200)}"
   end
 
+  # Agent-server requirements: models from the API graph, the UI export, and the admin list.
+  def agent_requirements = Agent::Requirements.for(self)
+
+  def extract_requirements
+    Agent::Requirements.extract!(self)
+    RecomputeAvailabilityJob.perform_later(workflow_id: id)
+    EnrichWorkflowModelsJob.perform_later(self)
+  end
+
   private
+
+  def requirements_inputs_changed?
+    %w[graph ui_graph extra_models].any? { saved_change_to_attribute?(it) } || structure_hash.blank?
+  end
 
   # The models textarea shows what the graph needs too; keeping those lines unless they add a
   # link would leave stale entries behind after the graph stops using a model.

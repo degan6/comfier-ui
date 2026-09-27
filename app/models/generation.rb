@@ -1,11 +1,12 @@
 # One request to generate media, and whatever ComfyUI produced for it.
-class Generation < ApplicationRecord
+class Generation < ApplicationRecord # rubocop:disable Metrics/ClassLength
   include GenerationParameters
   include GenerationSharing
   include GenerationContentReports
   include GenerationTiming
   include GenerationNotifying
   include GenerationActivityLogging
+  include GenerationAgent
 
   ASPECT_RATIO_LABELS = {
     '1:1' => 'Square', '4:3' => 'Landscape', '3:4' => 'Portrait', '16:9' => 'Wide', '9:16' => 'Tall'
@@ -25,6 +26,10 @@ class Generation < ApplicationRecord
   belongs_to :user
   belongs_to :workflow, optional: true
   belongs_to :backend, optional: true
+  belongs_to :pinned_backend, class_name: 'Backend', optional: true
+
+  has_many :generation_inputs, dependent: :delete_all
+  has_many :generation_outputs, dependent: :delete_all
 
   has_many_attached :outputs
   has_one_attached :input_image

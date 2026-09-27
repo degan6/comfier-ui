@@ -1,0 +1,47 @@
+<% content_for :title, "Connect #{@backend.name}" %>
+<%= turbo_stream_from @backend, :presence %>
+
+<div class="small text-secondary mb-2">
+  <%= link_to 'Servers', servers_path, class: 'link-secondary' %> ·
+  <%= link_to @backend.name, server_path(@backend), class: 'link-secondary' %>
+</div>
+<div class="mb-3">
+  <h1 class="h-page-title mb-0">Connect <%= @backend.name %></h1>
+  <div class="text-13 text-secondary mt-1">Install the Comfier Agent in ComfyUI and give it this server's key.</div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <% if @new_key %>
+      <div class="sidebar-card mb-4" data-controller="clipboard">
+        <div class="h-section-label">Your key</div>
+        <div class="input-group input-group-sm">
+          <input type="text" class="form-control font-monospace" value="<%= @new_key %>" readonly
+                 data-clipboard-target="source" aria-label="Server key">
+          <button type="button" class="btn btn-outline-secondary" data-action="clipboard#copy">
+            <i class="bi bi-clipboard" aria-hidden="true"></i> Copy
+          </button>
+        </div>
+        <div class="text-12 text-warning mt-2">You won't be able to see this key again. Copy it now.</div>
+      </div>
+    <% end %>
+
+    <div class="h-section-label">1. Install the agent</div>
+    <p class="text-13 mb-2">On the ComfyUI machine, copy the agent into <code>custom_nodes</code>:</p>
+    <pre class="text-12 bg-body-tertiary p-2 rounded"><%= install_snippet(@new_key || 'cmf_…your key…') %></pre>
+
+    <div class="h-section-label mt-3">2. Give it the key</div>
+    <p class="text-13 mb-2">
+      Set <code>COMFIER_URL</code> and <code>COMFIER_API_KEY</code> before starting ComfyUI, or paste them into
+      the <strong>Comfier</strong> panel in ComfyUI's sidebar. With Docker, add them to the service:
+    </p>
+    <pre class="text-12 bg-body-tertiary p-2 rounded"><%= docker_snippet(@new_key || 'cmf_…your key…') %></pre>
+
+    <div class="h-section-label mt-3">3. Restart ComfyUI</div>
+    <p class="text-13 mb-0">This page updates when the server connects.</p>
+  </div>
+
+  <div class="col-lg-5">
+    <%= render 'servers/presence', backend: @backend, setup: true %>
+  </div>
+</div>

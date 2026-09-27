@@ -1,0 +1,71 @@
+<%= form_with model: backend, url: backend.persisted? ? server_path(backend) : servers_path,
+              scope: :backend, data: { turbo: backend.persisted? } do |f| %>
+  <% if backend.errors.any? %>
+    <div class="alert alert-danger py-2 text-13"><%= backend.errors.full_messages.to_sentence %></div>
+  <% end %>
+
+  <div class="h-section-label">Identity</div>
+  <div class="mb-3">
+    <%= f.label :name, class: 'form-label' %>
+    <%= f.text_field :name, class: 'form-control form-control-sm', required: true, maxlength: 80,
+                            placeholder: 'studio-4090' %>
+  </div>
+  <div class="mb-3">
+    <%= f.label :description, class: 'form-label' %>
+    <%= f.text_area :description, rows: 2, class: 'form-control form-control-sm', maxlength: 500,
+                                  placeholder: 'Where it is, what it is good at' %>
+  </div>
+
+  <div class="h-section-label mt-4">Who can use it</div>
+  <div class="mb-3">
+    <% { 'private' => 'Only you', 'shared' => 'You and the people listed below',
+         'public' => 'Everyone on Comfier' }.each do |value, label| %>
+      <div class="form-check">
+        <%= f.radio_button :visibility, value, class: 'form-check-input' %>
+        <%= f.label :visibility, label, value:, class: 'form-check-label text-13' %>
+      </div>
+    <% end %>
+    <div class="form-text text-12">People whose jobs run here can't see your other jobs, but you can see their prompts, images, and results.</div>
+  </div>
+  <div class="mb-3">
+    <%= label_tag 'backend[share_emails]', 'Share with', class: 'form-label' %>
+    <%= text_area_tag 'backend[share_emails]', backend.shared_users.map(&:email).join("\n"), rows: 2,
+                      class: 'form-control form-control-sm', placeholder: 'One email address per line' %>
+    <div class="form-text text-12">Only used when "You and the people listed below" is selected.</div>
+  </div>
+
+  <% if backend.persisted? %>
+    <div class="h-section-label mt-4">Queue</div>
+    <div class="form-check form-switch mb-2">
+      <%= f.check_box :owner_priority, class: 'form-check-input', role: 'switch' %>
+      <%= f.label :owner_priority, 'Run my jobs before other people’s', class: 'form-check-label text-13' %>
+    </div>
+    <div class="mb-3" style="max-width: 16rem">
+      <%= f.label :max_queued_per_other_user, 'Most waiting jobs per other person', class: 'form-label' %>
+      <%= f.number_field :max_queued_per_other_user, min: 0, max: 1000, class: 'form-control form-control-sm' %>
+    </div>
+    <div class="mb-3">
+      <%= f.label :allowed_workflow_ids, 'Styles it runs', class: 'form-label' %>
+      <%= f.collection_select :allowed_workflow_ids, Workflow.enabled.ordered, :id, :name,
+                              { include_hidden: true, selected: backend.allowed_workflow_ids },
+                              multiple: true, size: 5, class: 'form-select form-select-sm' %>
+      <div class="form-text text-12">Select none to run every style.</div>
+    </div>
+
+    <div class="h-section-label mt-4">Model downloads</div>
+    <div class="mb-3">
+      <% { 'off' => 'Never download automatically', 'owner_jobs' => 'Download what my jobs need',
+           'all_jobs' => 'Download what anyone’s jobs need' }.each do |value, label| %>
+        <div class="form-check">
+          <%= f.radio_button :auto_download_policy, value, class: 'form-check-input' %>
+          <%= f.label :auto_download_policy, label, value:, class: 'form-check-label text-13' %>
+        </div>
+      <% end %>
+      <% unless backend.model_downloads_enabled? %>
+        <div class="form-text text-12">The agent on this server has downloads turned off, so nothing downloads until it allows them.</div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%= f.submit backend.persisted? ? 'Save' : 'Add server and create a key', class: 'btn btn-primary btn-sm mt-2' %>
+<% end %>

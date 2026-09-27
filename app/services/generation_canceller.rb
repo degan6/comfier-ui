@@ -1,4 +1,4 @@
-# Marks a generation cancelled and asks ComfyUI to drop it when it was already submitted.
+# Cancels a generation on whichever kind of server it's on.
 class GenerationCanceller
   Outcome = Data.define(:cancelled)
 
@@ -11,16 +11,7 @@ class GenerationCanceller
   def call
     return Outcome.new(cancelled: false) unless @generation.in_progress?
 
-    cancel_on_comfyui if @generation.running? && @generation.backend && @generation.comfy_prompt_id.present?
-    @generation.fail!(Generation::CANCELLED_MESSAGE)
-    Outcome.new(cancelled: true)
-  end
-
-  private
-
-  def cancel_on_comfyui
-    @generation.backend.client.cancel_prompt(@generation.comfy_prompt_id)
-  rescue Comfyui::Error
-    # Still mark it cancelled locally; polling will stop and ComfyUI may finish on its own.
+    runner = @generation.agent_job? ? Backends::AgentRunner.new : Backends::LegacyRunner.new
+    Outcome.new(cancelled: runner.cancel(@generation) != false)
   end
 end

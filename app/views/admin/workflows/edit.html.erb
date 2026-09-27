@@ -9,7 +9,11 @@
       <span class="badge text-bg-secondary-subtle mt-1">Disabled</span>
     <% end %>
   </div>
-  <div class="dropdown flex-shrink-0">
+  <div class="d-flex gap-2 flex-shrink-0">
+  <%= link_to requirements_admin_workflow_path(@workflow), class: 'btn btn-outline-secondary btn-sm' do %>
+    Agent servers<% if @workflow.requirements_need_review? %> <span class="text-warning">· needs review</span><% end %>
+  <% end %>
+  <div class="dropdown">
     <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false"
             aria-label="More actions">
       <i class="bi bi-three-dots" aria-hidden="true"></i>
@@ -17,6 +21,7 @@
     <ul class="dropdown-menu dropdown-menu-end text-13">
       <li><%= delete_workflow_button(@workflow, used: @usage_count) %></li>
     </ul>
+  </div>
   </div>
 </div>
 <%= render 'form', workflow: @workflow, placeholder_suggestion: @placeholder_suggestion %>

@@ -1,0 +1,11 @@
+<% content_for :title, 'Add a server' %>
+
+<div class="small text-secondary mb-2"><%= link_to 'Servers', servers_path, class: 'link-secondary' %></div>
+<div class="mb-3">
+  <h1 class="h-page-title mb-0">Add a server</h1>
+  <div class="text-13 text-secondary mt-1">Your ComfyUI machine connects to Comfier with a key you get on the next page.</div>
+</div>
+
+<div style="max-width: 40rem">
+  <%= render 'form', backend: @backend %>
+</div>

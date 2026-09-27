@@ -1,0 +1,128 @@
+<% content_for :title, @backend.name %>
+<%= turbo_stream_from @backend, :presence %>
+
+<div class="small text-secondary mb-2"><%= link_to 'Servers', servers_path, class: 'link-secondary' %></div>
+
+<div class="d-flex align-items-end justify-content-between mb-3">
+  <div>
+    <h1 class="h-page-title mb-0"><%= @backend.name %></h1>
+    <div class="text-13 text-secondary mt-1">
+      <%= @backend.owned_by?(current_user) ? 'Yours' : "#{@backend.owner_user&.display_name || 'Admin'}'s" %> ·
+      <%= { 'private' => 'Private', 'shared' => 'Shared', 'public' => 'Everyone' }[@backend.visibility] %>
+      <% if @backend.description.present? %> · <%= @backend.description %><% end %>
+    </div>
+  </div>
+  <% if @can_manage %>
+    <div class="d-flex gap-2">
+      <% if @backend.paused? %>
+        <%= button_to 'Resume', resume_server_path(@backend), class: 'btn btn-primary btn-sm' %>
+      <% else %>
+        <%= button_to 'Pause', pause_server_path(@backend), class: 'btn btn-outline-secondary btn-sm' %>
+      <% end %>
+      <%= link_to 'Settings', settings_server_path(@backend), class: 'btn btn-outline-secondary btn-sm' %>
+    </div>
+  <% end %>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="h-section-label">Now</div>
+    <% if @current %>
+      <div class="list-compact mb-3 text-13">
+        <div class="d-flex justify-content-between">
+          <span class="fw-medium"><%= queue_entry_label(@current, @backend) %></span>
+          <span class="text-secondary"><%= @current.agent_status_line %></span>
+        </div>
+        <div class="progress mt-1" style="height: 4px" role="progressbar" aria-label="Progress"
+             aria-valuenow="<%= (@current.agent_progress.to_f * 100).round %>" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar" style="width: <%= (@current.agent_progress.to_f * 100).round %>%"></div>
+        </div>
+      </div>
+    <% else %>
+      <p class="text-13 text-secondary">Nothing running.</p>
+    <% end %>
+
+    <div class="h-section-label mt-4">Queue <span class="num text-secondary"><%= @queue.size %></span></div>
+    <% if @queue.any? %>
+      <table class="table table-compact align-middle">
+        <tbody>
+          <% @queue.each do |gen| %>
+            <tr>
+              <td><%= queue_entry_label(gen, @backend) %></td>
+              <td class="text-12 text-secondary"><%= gen.agent_status_line %></td>
+              <td class="text-12 text-secondary text-end"><%= eta_phrase(gen.predicted_start_at) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% else %>
+      <p class="text-13 text-secondary">No one is waiting.</p>
+    <% end %>
+
+    <%= render 'servers/downloads', backend: @backend, downloads: @downloads, can_manage: @can_manage %>
+
+    <div class="h-section-label mt-4">Styles</div>
+    <table class="table table-compact align-middle">
+      <tbody>
+        <% @workflows.each do |workflow| %>
+          <% record = @availability[workflow.id] %>
+          <tr>
+            <td><%= workflow.name %> <span class="text-12 text-secondary"><%= workflow.kind_info.label %></span></td>
+            <td><%= availability_cell(record) %></td>
+            <td class="text-12 text-secondary">
+              <%= Array(record&.details&.dig('reasons')).first %>
+              <% Array(record&.details&.dig('hints')).each do |hint| %><div class="text-warning"><%= hint %></div><% end %>
+            </td>
+            <td class="text-end">
+              <% if @can_manage && record&.needs_downloads? %>
+                <%= button_to 'Download', server_downloads_path(@backend, workflow_id: workflow.id),
+                              class: 'btn btn-outline-secondary btn-sm' %>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+
+    <% if @can_manage %>
+      <div class="h-section-label mt-4">Usage</div>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="text-12 text-secondary mb-1">Busy, last 7 days (% of online time)</div>
+          <canvas data-controller="chart" data-chart-url-value="<%= load_server_path(@backend, range: 'week') %>"
+                  data-chart-key-value="utilization" data-chart-type-value="line" height="160"
+                  aria-label="Utilization chart"></canvas>
+        </div>
+        <div class="col-md-6">
+          <div class="text-12 text-secondary mb-1">Jobs per day</div>
+          <canvas data-controller="chart" data-chart-url-value="<%= load_server_path(@backend, range: 'month') %>"
+                  data-chart-key-value="jobs" data-chart-type-value="bar" height="160" aria-label="Jobs chart"></canvas>
+        </div>
+        <div class="col-12">
+          <div class="text-12 text-secondary mb-1">Typical run time by style</div>
+          <canvas data-controller="chart" data-chart-url-value="<%= performance_server_path(@backend) %>"
+                  data-chart-type-value="bar" height="120" aria-label="Run time chart"></canvas>
+        </div>
+      </div>
+
+      <%= render 'servers/performance', backend: @backend, stats: @perf_stats %>
+      <%= render 'servers/inventory', backend: @backend %>
+    <% end %>
+  </div>
+
+  <div class="col-lg-4">
+    <%= render 'servers/presence', backend: @backend %>
+    <% if @can_manage %>
+      <%= render 'servers/keys', backend: @backend, keys: @keys %>
+      <div class="text-12 text-secondary mt-4">
+        <div class="h-section-label">System</div>
+        <div>Agent <%= @backend.agent_version.presence || '—' %></div>
+        <% if (os = @backend.system_json&.dig('os')).present? %><div><%= os %></div><% end %>
+        <div>Added <%= friendly_time(@backend.created_at) %></div>
+        <% if @backend.connected_at %><div>Last connected <%= friendly_time(@backend.connected_at) %></div><% end %>
+        <% if @backend.last_seen_at %><div>Last seen <%= friendly_time(@backend.last_seen_at) %></div><% end %>
+        <div>ID <%= @backend.id %></div>
+      </div>
+    <% end %>
+  </div>
+</div>

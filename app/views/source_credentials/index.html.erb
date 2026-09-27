@@ -1,0 +1,13 @@
+<% content_for :title, 'Download tokens' %>
+
+<div class="mb-3">
+  <h1 class="h-page-title mb-0">Download tokens</h1>
+  <div class="text-13 text-secondary mt-1">
+    Some models need an account to download, like gated Hugging Face repos or Civitai. Tokens here are used for
+    downloads onto your servers.
+  </div>
+</div>
+
+<%= render 'source_credentials/list', credentials: @credentials, credential: @credential,
+                                      create_path: source_credentials_path,
+                                      delete_path: ->(c) { source_credential_path(c) } %>

@@ -1,0 +1,43 @@
+<div class="h-section-label mt-4">Downloads</div>
+<% if downloads.any? %>
+  <table class="table table-compact align-middle">
+    <tbody>
+      <% downloads.each do |download| %>
+        <tr>
+          <td class="w-status">
+            <% if download.agent_state == 'completed' %><span class="status-dot status-success" title="Done"></span>
+            <% elsif download.agent_state == 'failed' %><span class="status-dot status-danger" title="Failed"></span>
+            <% elsif download.agent_state == 'cancelled' %><span class="status-dot status-muted" title="Cancelled"></span>
+            <% else %><span class="spinner-grow spinner-grow-sm text-secondary" aria-hidden="true"></span>
+            <% end %>
+          </td>
+          <td>
+            <div class="text-13"><%= download.directory %>/<%= download.name %></div>
+            <% if download.agent_state == 'failed' %>
+              <div class="text-12 text-danger"><%= download.error_message %></div>
+            <% elsif Agent::DownloadSender::PENDING.include?(download.agent_state) %>
+              <div class="text-12 text-secondary">
+                <%= download.agent_state == 'queued' ? 'Waiting to start' : download_line(download) %>
+              </div>
+              <% if (progress = download.agent_progress) %>
+                <div class="progress mt-1" style="height: 3px" role="progressbar" aria-label="Download progress"
+                     aria-valuenow="<%= (progress * 100).round %>" aria-valuemin="0" aria-valuemax="100">
+                  <div class="progress-bar" style="width: <%= (progress * 100).round %>%"></div>
+                </div>
+              <% end %>
+            <% end %>
+          </td>
+          <td class="text-12 text-secondary text-end"><%= friendly_time(download.created_at) %></td>
+          <td class="text-end">
+            <% if can_manage && download.cancellable? %>
+              <%= button_to 'Cancel', server_download_path(backend, download), method: :delete,
+                            class: 'btn btn-outline-secondary btn-sm' %>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p class="text-13 text-secondary">No downloads yet.</p>
+<% end %>

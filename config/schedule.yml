@@ -1,0 +1,26 @@
+# Periodic jobs, loaded by sidekiq-cron from config/initializers/sidekiq.rb.
+# Six-field entries include seconds.
+agent_offline_sweep:
+  cron: '*/10 * * * * *'
+  class: OfflineSweepJob
+  description: Marks agent servers offline when they stop sending status, and broadcasts the change.
+agent_lease_sweep:
+  cron: '*/15 * * * * *'
+  class: LeaseSweepJob
+  description: Recovers jobs from agent servers that stayed offline past the lease grace period.
+agent_rebalance:
+  cron: '*/15 * * * * *'
+  class: RebalanceJob
+  description: Moves queued jobs to a server that would finish them much sooner.
+agent_speed_index:
+  cron: '5 * * * *'
+  class: SpeedIndexJob
+  description: Recomputes each server's relative speed from shared job types.
+agent_load_rollup:
+  cron: '15 3 * * *'
+  class: LoadRollupJob
+  description: Rolls load minutes into hourly buckets and prunes old load and performance history.
+agent_perf_rebuild:
+  cron: '45 3 * * *'
+  class: PerfRebuildJob
+  description: Rebuilds performance statistics from the last 90 days of samples.

@@ -9,6 +9,7 @@ ComfyUI servers your admins have set up; you never need to touch a node graph.
 - [Shared](#shared)
 - [Queue](#queue)
 - [Settings](#settings)
+- [Servers](#servers)
 - [For admins: backends](#for-admins-backends)
 - [For admins: workflows](#for-admins-workflows)
 - [How-to](#how-to)
@@ -37,7 +38,12 @@ The **Image**, **Video**, **Audio** and **3D Model** pages all work the same way
 5. Some styles also ask for a **Length** in seconds (video and audio), a **Reference image** / **Starting frame** /
    **Picture of the object**, **Quality**, **Prompt strength**, **How much to change the reference**, **Lyrics**, or
    **How many** outputs to make — only when that style's workflow uses them.
-6. Choose **Generate**. If other jobs are waiting, you'll see roughly how long yours might take.
+6. If you can use more than one Comfier Agent server, you can pick one under **Run on**, or leave it on
+   **Auto (fastest)**. Under the form you'll see roughly when your job should finish.
+7. Choose **Generate**.
+
+If your job might run on a server that belongs to someone else, a note under the form says so. That server's owner
+can see your prompt, images and results.
 
 Your request appears under **Recent** straight away and updates by itself as it goes from queued to generating to
 done. You can leave the page; the work carries on without you.
@@ -58,8 +64,11 @@ Select a result to open it. From there you can:
 - **Tweak**: open the form pre-filled with this result's settings, so you can change something and generate again.
 - **Delete** it, from the **⋯** menu.
 
-If something failed, the result's page explains why, for example that no server was available or that ComfyUI
-rejected the workflow.
+While a job is queued or running you can **Cancel** it from its page.
+
+If something failed, the result's page explains why, for example that no server was available, that ComfyUI
+rejected the workflow, which step failed, or that the server ran out of memory. If a server disconnects mid-job,
+Comfier retries the job on another server by itself.
 
 On a finished result you can **Share with everyone** from the **⋯** menu. Choose whether to include the prompt
 and/or reference image. Shared results appear under **Shared** for every signed-in member. Choose **Stop sharing**
@@ -88,6 +97,9 @@ in the navbar updates as jobs start and finish.
 - **Always avoid**: pre-filled into **Avoid** under **More options**, for styles that support it.
 - **Server**: only shown when there's more than one. Leave it on **Automatic (least busy)** unless you've been asked
   to use a particular one.
+- **Where your jobs run**: shown once you can use Comfier Agent servers. **Fastest available** picks whichever
+  server should finish first. **Prefer my servers** uses your own when they can run the job, **Only my servers**
+  never sends your work to anyone else's, and **Any server** ignores ownership entirely.
 
 ### Notifications
 
@@ -105,6 +117,57 @@ Slack yet. Once your admins link it, sign out and back in.
 
 Notifications are off until you turn them on.
 
+## Servers
+
+**Servers** lists the ComfyUI servers you can use through the Comfier Agent: your own, ones people shared with you,
+and ones open to everyone. Each shows whether it's online, what it's doing, and how busy it is. Open one to see its
+current job, its queue, which styles it can run, installed models, downloads and usage charts. The page updates by
+itself.
+
+Unlike backends, which Comfier's server has to reach, an agent server connects **out** to Comfier, so it works from
+a home network without opening a port. Members can add their own unless an admin has turned that off.
+
+### Adding a server
+
+1. Choose **Servers → + Add a server**.
+2. Give it a **Name** and, optionally, a description.
+3. Under **Who can use it**, choose **Only you**, **You and the people listed below** (then enter their email
+   addresses, one per line, under **Share with**), or **Everyone on Comfier**.
+4. Choose **Add server and create a key**. Copy the key now; you won't see it again.
+5. Follow the steps on the page to install the Comfier Agent into ComfyUI, give it Comfier's address and the key,
+   and restart ComfyUI. The page shows when the server connects.
+
+The key can also be pasted into the **Comfier** tab in ComfyUI's sidebar, which shows whether the agent is
+connected and, if not, why.
+
+### Your server's settings
+
+Open your server and choose **Settings**:
+
+- **Who can use it** and **Share with**: as when adding it. People who use your server can't see your other jobs,
+  but **you can see their prompts, images and results**; Comfier warns them before a job runs on your server.
+- **Run my jobs before other people's**: your work jumps ahead of other people's waiting jobs.
+- **Most waiting jobs per other person**: stops one person filling your queue.
+- **Styles it runs**: limit the server to some styles; select none to run every style.
+- **Model downloads**: whether Comfier may download the models a style needs onto this server: never, only for your
+  jobs, or for anyone's.
+
+**Pause** stops new jobs going to the server without disconnecting it; **Resume** starts them again. To delete a
+server, open **Settings** and use the **⋯** menu. Its key stops working and its waiting jobs move to other servers.
+
+### Keys
+
+The **Keys** card on your server's page lists its keys and when each was last used. **New key** makes a replacement
+and shows it once. The old key keeps working for 24 hours so you have time to update ComfyUI, unless you tick
+**Stop the old key working now**. **Revoke** stops a key at once and disconnects any server using it.
+
+### Downloads and download tokens
+
+When a style needs a model your server doesn't have, Comfier can download it onto the server (see **Model
+downloads** above). Downloads in progress show on the server's page, where you can cancel them. Some models need an
+account, like gated Hugging Face repos or Civitai. Add a token for that site under **Settings → Download tokens**.
+Tokens are stored encrypted, only the last four characters are ever shown, and each is only sent to its own site.
+
 ## For admins: backends
 
 A backend is a ComfyUI server Comfier sends work to. Find them under **Settings → Backends**.
@@ -120,6 +183,14 @@ A backend is a ComfyUI server Comfier sends work to. Find them under **Settings 
 
 Comfier checks a backend when you save it; choose **Test** in the list to check it again. With several enabled backends, each
 new request goes to the reachable one with the shortest queue, unless the user picked a server in their settings.
+
+To move a backend to the Comfier Agent, choose **Switch to the Comfier Agent** from its **⋯** menu. Comfier makes a
+key and shows the install steps; the server keeps its history.
+
+Admins also get **Settings → Server overview**, with load and job charts for every agent server and a link to
+**Prediction accuracy**, which compares Comfier's time estimates with how long jobs really took. **Settings → Global
+download tokens** holds tokens used for downloads onto any server, and **Settings → Notifications → Servers** turns
+member-added servers on or off.
 
 ## For admins: workflows
 
@@ -190,6 +261,17 @@ many workflows use files that aren't there; install the Comfier downloader node 
 anything. Once you've fixed the cause, choose **Install** again to retry.
 
 Choose **Re-check** after adding or removing model files on a server by hand, or after installing the downloader node.
+
+#### On agent servers
+
+The workflow page's **Agent servers** button (marked **needs review** when Comfier found something to confirm) lists
+the model files the workflow needs, where Comfier found each one, and its download link. Correct a folder, file
+name or link there, add a file in the blank last row, or remove one Comfier picked up by mistake, and choose
+**Save**. Comfier keeps your edits when it re-reads the workflow.
+
+Below that, every agent server shows whether it can run the workflow now, needs downloads first, or can't run it
+and why (for example a missing custom node or not enough GPU memory). Tick the servers that need downloads and
+choose **Prepare selected servers** to download everything they're missing ahead of the first job.
 
 ## How-to
 

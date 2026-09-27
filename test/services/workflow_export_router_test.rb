@@ -29,6 +29,17 @@ class WorkflowExportRouterTest < ActiveSupport::TestCase
     assert_includes result.models_content, 'hf.test/sd15.safetensors'
   end
 
+  test 'graph content from an upload is UTF-8 for the admin form' do
+    workflow = Workflow.new
+    payload = api_graph.to_json.dup.force_encoding(Encoding::ASCII_8BIT)
+    api = upload(payload, 'api.json')
+
+    result = WorkflowExportRouter.route(workflow, graph_file: api, models_file: nil)
+
+    assert_equal Encoding::UTF_8, result.graph_content.encoding
+    assert_predicate result.graph_content, :valid_encoding?
+  end
+
   test 'swaps exports that were uploaded into the wrong slots' do
     workflow = Workflow.new
     api = upload(api_graph.to_json, 'api.json')

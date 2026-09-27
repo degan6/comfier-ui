@@ -169,6 +169,25 @@ The ComfyUI downloader node has its own tests, which need only Python 3.8+ (no C
 python3 -m unittest discover -s comfyui/tests
 ```
 
+The Comfier Agent has a pytest suite that runs the agent against a fake Comfier and a fake ComfyUI, checking every
+message against `protocol/agent-v1.schema.json` (Python 3.10+):
+
+```bash
+python3 -m venv /tmp/comfier-venv
+/tmp/comfier-venv/bin/pip install -e "comfyui/comfier_agent[test]" ruff
+cd comfyui/comfier_agent && /tmp/comfier-venv/bin/ruff check comfier_agent tests && /tmp/comfier-venv/bin/pytest -q
+```
+
+An end-to-end test runs the real pieces together: Rails (Puma), Sidekiq, Redis, the real agent and a fake ComfyUI
+(`test/e2e/fake_comfyui.py`). It submits a job and waits for its output, then kills the agent mid-job, restarts it,
+and checks the job still finishes exactly once:
+
+```bash
+docker compose -f docker-compose.test.yml run --rm e2e
+```
+
+Logs from each process land in `tmp/e2e/`.
+
 ## Linting
 
 ```bash
@@ -218,7 +237,38 @@ docker compose exec web ls -la /rails/storage
 Both containers should list the same blob directories under `/rails/storage`. If neither has files, regenerate after
 fixing storage — old blob records in Postgres won't recover.
 
+### Agent servers
+
+The recommended way to connect a ComfyUI server is the Comfier Agent (`comfyui/comfier_agent`). The agent connects
+**out** to Comfier over a WebSocket, so ComfyUI needs no open port, and servers can belong to members as well as
+admins. Add one under **Servers → + Add a server**; the setup page shows the key once and the install steps. See
+[`comfyui/comfier_agent/README.md`](comfyui/comfier_agent/README.md) for configuration.
+
+Agents fetch inputs from, and upload outputs to, `APP_URL`, so it must be reachable from every ComfyUI machine. Your
+reverse proxy must pass WebSocket upgrades for `/api/agent/ws` (and allow connections to stay open), for example in
+nginx:
+
+```nginx
+location /api/agent/ws {
+  proxy_pass http://comfier;
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade $http_upgrade;
+  proxy_set_header Connection "upgrade";
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_read_timeout 1h;
+}
+```
+
+Web and Sidekiq talk to connected agents through Redis, so both need the same `REDIS_URL`. Sidekiq also runs the
+periodic jobs in `config/schedule.yml` (sidekiq-cron), which mark silent servers offline and recover their jobs.
+
+Directly connected servers (added by URL under **Settings → Backends**) keep working. An admin can convert one with
+**Switch to the Comfier Agent** from its **⋯** menu.
+
 ### Preparing ComfyUI servers for model installs
+
+This section is about directly connected servers; agent servers download models themselves.
 
 Comfier checks which models each backend has through ComfyUI's own `/models` API; that needs nothing extra. To
 install missing models from the workflow page, a backend needs one of these:
@@ -246,7 +296,7 @@ unless `network_mode = personal_cloud` (and `security_level` is `normal` or lowe
 isn't reachable from untrusted networks.
 
 GitHub Actions runs on every pull request and on pushes to `staging` and `main`: [Tests](.github/workflows/tests.yml)
-(Rails and the ComfyUI downloader node), [Lint](.github/workflows/lint.yml) (RuboCop), and
+(Rails, the ComfyUI downloader node, the Comfier Agent, and the agent end-to-end test), [Lint](.github/workflows/lint.yml) (RuboCop), and
 [Security](.github/workflows/security.yml) (Brakeman, bundler-audit, importmap audit). Work branches target
 `staging`; see the deployment rules in `.cursor/rules/deployment-rules.mdc`.
 
@@ -282,7 +332,13 @@ The first push to GHCR may require making the package public under the repo's **
 | `app/jobs/poll_generation_job.rb` | Polls history, downloads outputs into Active Storage, times out stuck jobs |
 | `app/services/workflow_models.rb` | Works out which model files a workflow loads, and reads links from UI-format exports |
 | `app/services/model_installer.rb`, `app/jobs/*_model_download_job.rb` | Queue, start and follow model downloads |
-| `comfyui/comfier_downloader/` | The ComfyUI custom node that performs downloads on the server |
+| `comfyui/comfier_downloader/` | The ComfyUI custom node that performs downloads on directly connected servers |
+| `comfyui/comfier_agent/` | The Comfier Agent: a ComfyUI custom node that connects out to Comfier, runs jobs and downloads models |
+| `protocol/agent-v1.schema.json` | JSON Schema for every agent WebSocket message; both sides validate against it |
+| `app/services/agent/` | The agent WebSocket endpoint, routing, dispatch, job and download lifecycles, reconciliation |
+| `app/services/perf/` | Run-time samples, statistics, the predictor and per-server speed index used for ETAs and routing |
+| `app/services/backend_policy.rb` | Who can see, use and manage each server |
+| `config/schedule.yml` | sidekiq-cron jobs: offline and lease sweeps, rebalancing, speed index, load rollups |
 | `app/models/privacy_notice.rb` | Privacy notice text and version; users must agree before using the app |
 | `app/services/queue_estimator.rb` | Estimates wait times from recent run durations and queue position |
 | `app/controllers/shared_controller.rb` | Gallery of results members chose to share |

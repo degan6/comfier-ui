@@ -17,6 +17,15 @@ services:
       interval: 2s
       retries: 20
 
+  redis:
+    image: redis:8.10-alpine
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      retries: 20
+
   test:
     build:
       context: .
@@ -35,6 +44,28 @@ services:
       postgres:
         condition: service_healthy
     command: bash -c "bin/rails db:test:prepare && bin/rails test"
+
+  # The agent end-to-end test: docker compose -f docker-compose.test.yml run --rm e2e
+  e2e:
+    image: comfier-ui-dev:latest
+    volumes:
+      - .:/rails
+      - bundle:/usr/local/bundle
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      POSTGRES_HOST: postgres
+      E2E_REDIS_URL: redis://redis:6379/15
+      PYTHONPATH: /rails/comfyui/comfier_agent
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >-
+      bash -c "apt-get update -qq && apt-get install --no-install-recommends -y -qq python3 python3-aiohttp >/dev/null
+      && script/agent_e2e"
 
 volumes:
   bundle:

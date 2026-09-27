@@ -38,5 +38,12 @@
     <div class="form-text text-12">Uses distinct reporters on one case. Set to 0 to never auto-hide.</div>
   </div>
 
+  <div class="h-section-label mt-4 mb-2">Servers</div>
+  <div class="form-check form-switch mb-3">
+    <%= f.check_box :allow_user_backends, class: 'form-check-input', role: 'switch' %>
+    <%= f.label :allow_user_backends, 'Members can add their own ComfyUI servers', class: 'form-check-label text-13' %>
+    <div class="form-text text-12">Admins can always add servers. Turning this off keeps existing servers connected.</div>
+  </div>
+
   <%= f.submit 'Save', class: 'btn btn-primary btn-sm' %>
 <% end %>

@@ -1,5 +1,7 @@
 # Anonymous viewer for a single result via an unguessable token.
 class PublicSharesController < ApplicationController
+  include OutputServing
+
   layout 'bare'
   allow_unauthenticated_access
   skip_privacy_gate
@@ -13,10 +15,7 @@ class PublicSharesController < ApplicationController
     attachment = @generation.outputs.order(:id)[params[:index].to_i]
     return head :not_found unless attachment
 
-    send_data attachment.download,
-              filename: attachment.filename.to_s,
-              type: attachment.content_type,
-              disposition: 'inline'
+    serve_output(attachment)
   end
 
   private

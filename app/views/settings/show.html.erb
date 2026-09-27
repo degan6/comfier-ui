@@ -33,6 +33,24 @@
     </div>
   <% end %>
 
+  <% if @agent_servers || @user.owned_backends.agent.kept.exists? %>
+    <div class="mb-3">
+      <%= f.label :backend_affinity, 'Where your jobs run', class: 'form-label' %>
+      <%= f.select :backend_affinity, User::BACKEND_AFFINITIES.map { |value, label| [label, value] }, {},
+                   class: 'form-select form-select-sm' %>
+      <div class="form-text text-12">
+        Fastest available prefers your own servers if you have any. "Only my servers" waits for yours to come online.
+      </div>
+    </div>
+  <% end %>
+
+  <div class="h-section-label mt-4">Your uploads</div>
+  <div class="form-check form-switch mb-3">
+    <%= f.check_box :delete_uploads_after_run, class: 'form-check-input', role: 'switch' %>
+    <%= f.label :delete_uploads_after_run, "Don't keep my uploads", class: 'form-check-label' %>
+    <div class="form-text text-12 mt-0">Images you upload are deleted as soon as the job that used them ends.</div>
+  </div>
+
   <div class="h-section-label mt-4">Sharing</div>
   <div class="form-check form-switch mb-3">
     <%= f.check_box :share_by_default, class: 'form-check-input', role: 'switch' %>

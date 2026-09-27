@@ -3,9 +3,24 @@
 class ModelDownload < ApplicationRecord
   enum :status, { queued: 'queued', running: 'running', succeeded: 'succeeded', failed: 'failed' },
        default: :queued, validate: true
-  enum :via, { node: 'node', manager: 'manager' }, validate: { allow_nil: true }
+  enum :via, { node: 'node', manager: 'manager', agent: 'agent' }, validate: { allow_nil: true }
 
   belongs_to :backend
+  belongs_to :requested_by_user, class_name: 'User', optional: true
+
+  scope :agent_pending, -> { where(agent_state: Agent::DownloadSender::PENDING) }
+
+  def agent_progress
+    return unless bytes_total.to_i.positive?
+
+    (bytes_done.to_f / bytes_total).clamp(0, 1)
+  end
+
+  def agent_eta = Agent::DownloadSender.eta(self)
+
+  def cancellable?
+    agent? ? Agent::DownloadSender::PENDING.include?(agent_state) && agent_state != 'cancelling' : false
+  end
 
   validates :directory, :name, :url, presence: true
   validate :requirement_is_valid
