@@ -27,6 +27,7 @@ module Admin
       return suggest_placeholders if params[:suggest_placeholders].present?
 
       assign_workflow
+      apply_reviewed_placeholders
       if @workflow.save
         redirect_to edit_admin_workflow_path(@workflow), notice: saved_notice("Added #{@workflow.name}."),
                                                          status: :see_other
@@ -39,6 +40,7 @@ module Admin
       return suggest_placeholders if params[:suggest_placeholders].present?
 
       assign_workflow
+      apply_reviewed_placeholders
       if @workflow.save
         redirect_to edit_admin_workflow_path(@workflow), notice: saved_notice("Saved #{@workflow.name}."),
                                                          status: :see_other
@@ -47,27 +49,14 @@ module Admin
       end
     end
 
-    def suggest_placeholders # rubocop:disable Metrics/AbcSize
+    # Proposes placeholders for review without touching the JSON; the checked ones are applied on save.
+    def suggest_placeholders
       assign_workflow
-      if !@workflow.graph.is_a?(Hash) || @workflow.graph.empty?
-        flash.now[:alert] = 'Paste or upload an API-format workflow JSON first.'
-        return respond_to_suggest_form
-      end
-
-      result = PlaceholderSuggester.call(@workflow.graph, user: current_user)
-      @workflow.graph_json = JSON.pretty_generate(result.graph)
-      @placeholder_suggestion = result
-      @placeholder_debug = result.debug
-      flash.now[:notice] = suggestion_notice(result)
+      @placeholder_suggestion = PlaceholderSuggester.call(@workflow.graph_json, user: current_user)
+      flash.now[:notice] = suggestion_notice(@placeholder_suggestion)
       respond_to_suggest_form
     rescue PlaceholderSuggester::Error => e
-      @placeholder_debug = e.debug
       flash.now[:alert] = e.message
-      respond_to_suggest_form
-    rescue StandardError => e
-      Rails.logger.error("Suggest placeholders failed: #{e.class}: #{e.message}\n#{e.backtrace.first(5).join("\n")}")
-      @placeholder_debug = e.debug if e.is_a?(PlaceholderSuggester::Error) && e.debug.present?
-      flash.now[:alert] = "Suggest placeholders failed: #{e.message}"
       respond_to_suggest_form
     end
 
@@ -118,15 +107,54 @@ module Admin
       @workflow.import_models(exports.models_content) if exports.models_content.present?
     end
 
+    # The rows ticked in the placeholder review. The graph's own validation reports a malformed workflow.
+    def apply_reviewed_placeholders
+      substitutions = reviewed_substitutions
+      return if substitutions.empty?
+
+      applied = PlaceholderSuggester.apply(@workflow.graph, substitutions)
+      @workflow.graph_json = JSON.pretty_generate(applied.graph)
+      @placeholder_notice = applied_notice(applied)
+    rescue PlaceholderSuggester::Error
+      nil
+    end
+
+    def reviewed_substitutions
+      rows = params[:placeholder_substitutions]
+      return [] unless rows.is_a?(ActionController::Parameters)
+
+      rows.each_value.filter_map do |row|
+        next unless row.is_a?(ActionController::Parameters)
+
+        row = row.permit(:node, :input, :placeholder, :source, :apply)
+        next unless row[:apply] == '1'
+
+        PlaceholderSuggester::Substitution.new(
+          node: row[:node].to_s, input: row[:input].to_s, placeholder: row[:placeholder].to_s, old_value: nil,
+          source: row[:source].presence_in(%w[rule llm manual]) || 'manual'
+        )
+      end
+    end
+
+    def applied_notice(applied)
+      count = applied.substitutions.size
+      parts = ["Applied #{count} #{'placeholder'.pluralize(count)}."]
+      parts << "Skipped #{applied.errors.size}: #{applied.errors.to_sentence}." if applied.errors.any?
+      parts.join(' ')
+    end
+
     def saved_notice(message)
-      [message, @export_swap_notice].compact.join(' ')
+      [message, @placeholder_notice, @export_swap_notice].compact.join(' ')
     end
 
     def suggestion_notice(result)
-      count = result.changes.count(&:placeholder_substitution?)
-      parts = ["Suggested #{count} #{'placeholder'.pluralize(count)}."]
+      count = result.substitutions.size
+      parts = if count.zero?
+                ['No placeholders found. Add any by hand below.']
+              else
+                ["Proposed #{count} #{'placeholder'.pluralize(count)}. Untick any you don't want, then choose Save."]
+              end
       parts << @export_swap_notice if @export_swap_notice.present?
-      parts << result.notes if result.notes.present?
       parts.join(' ')
     end
 

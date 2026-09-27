@@ -2,9 +2,9 @@
 
 <h1 class="h-page-title mb-3">Workflow assistant</h1>
 <p class="text-13 text-secondary mb-3">
-  When adding a workflow, Comfier can ask an LLM to replace literal values in the API export with
-  <code>{{placeholders}}</code>. The prompt below is sent as the system message; the allowed placeholder list and
-  the workflow JSON are appended automatically when you choose <strong>Suggest placeholders</strong>.
+  <strong>Suggest placeholders</strong> classifies most inputs with built-in rules. The few it can't place are sent
+  to an LLM, one line per input, and the model replies with a list of substitutions rather than a workflow. The
+  prompt below is the system message; the reply is held to the placeholders Comfier knows.
 </p>
 
 <% if LiteLlm::Client.configured? %>
@@ -31,7 +31,7 @@
     <%= f.label :placeholder_prompt, 'Prompt', class: 'form-label' %>
     <%= f.text_area :placeholder_prompt, rows: 18, class: 'form-control form-control-sm font-monospace text-12',
                                          spellcheck: false,
-                                         placeholder: AppSetting::DEFAULT_PLACEHOLDER_PROMPT %>
+                                         placeholder: AppSetting.default_placeholder_prompt %>
     <div class="form-text text-12">
       <% if @settings.using_default_placeholder_prompt? %>
         Using the built-in default prompt.

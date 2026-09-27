@@ -29,12 +29,15 @@ module LiteLlm
       ENV.fetch('LITELLM_TIMEOUT_SECONDS', 180).to_i
     end
 
-    def self.chat(system:, user:, audit: nil) = new.chat(system:, user:, audit:)
+    def self.chat(system:, user:, audit: nil, **) = new.chat(system:, user:, audit:, **)
 
-    def chat(system:, user:, audit: nil)
+    # `history` is earlier user/assistant turns, sent between the system prompt and `user`.
+    # `json_schema` ({ name:, schema: }) asks for structured output; LiteLLM translates it for Ollama,
+    # llama.cpp and LM Studio. Without it the reply is only held to being a JSON object.
+    def chat(system:, user:, audit: nil, **)
       raise Error, 'LiteLLM is not configured (set LITELLM_URL and LITELLM_MODEL in .env)' unless self.class.configured?
 
-      body = request_body(system:, user:)
+      body = request_body(system:, user:, **)
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       response = post_raw(completions_url, body)
       duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round
@@ -64,15 +67,20 @@ module LiteLlm
 
     private
 
-    def request_body(system:, user:)
+    def request_body(system:, user:, history: [], temperature: nil, json_schema: nil)
       {
         model: self.class.model,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user }
-        ],
-        response_format: { type: 'json_object' }
-      }
+        messages: [{ role: 'system', content: system }, *history, { role: 'user', content: user }],
+        temperature:,
+        response_format: response_format(json_schema)
+      }.compact
+    end
+
+    def response_format(json_schema)
+      return { type: 'json_object' } unless json_schema
+
+      { type: 'json_schema', json_schema: { name: json_schema.fetch(:name), strict: true,
+                                            schema: json_schema.fetch(:schema) } }
     end
 
     def completions_url

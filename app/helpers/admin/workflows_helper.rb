@@ -34,6 +34,22 @@ module Admin
       end
     end
 
+    PLACEHOLDER_SOURCES = { 'rule' => 'Rule', 'llm' => 'LLM', 'manual' => 'Added' }.freeze
+
+    def placeholder_source_label(source) = PLACEHOLDER_SOURCES.fetch(source.to_s, source.to_s.humanize)
+
+    # Strings are quoted so an empty or whitespace value is still visible.
+    def placeholder_review_value(value, length: 80)
+      value.is_a?(String) ? value.truncate(length).inspect : value.to_s
+    end
+
+    def placeholder_llm_summary(llm)
+      case llm.status
+      when :not_needed then 'The rules classified every input, so the LLM wasn\'t asked.'
+      when :disabled then 'No LLM is configured, so only the built-in rules ran.'
+      end
+    end
+
     def delete_workflow_button(workflow, used: nil)
       used = Generation.where(workflow_id: workflow.id).count if used.nil?
       confirm = "Remove #{workflow.name}?"

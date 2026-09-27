@@ -129,7 +129,7 @@ A workflow decides what one style on one page does. Find them under **Settings �
 2. Export it twice: **Workflow → Export (API)** for the workflow itself, and **Workflow → Export** if you want
    Comfier to pick up model download links from ComfyUI templates.
 3. In Comfier, choose **Add workflow** (or open an existing one). At the top, upload one or both export files
-   together, then either edit placeholders by hand or choose **Suggest placeholders** if LiteLLM is configured.
+   together, then either edit placeholders by hand or choose **Suggest placeholders**.
 4. Replace the values users should control with placeholders (or let the assistant suggest them):
 
    | Placeholder | Becomes |
@@ -147,9 +147,14 @@ A workflow decides what one style on one page does. Find them under **Settings �
    **Frame rate** for video.
 7. Leave **Offer this to users** ticked, and use **Order** to decide which style is listed first.
 
-**Suggest placeholders** sends the API JSON to an LLM via LiteLLM (`LITELLM_URL`, `LITELLM_MODEL` and optionally
-`LITELLM_API_KEY` in `.env`). Comfier shows what it changed and fills the JSON textarea for you to review; nothing
-is saved until you choose **Save**. Edit the system prompt under **Settings → Workflow assistant**.
+**Suggest placeholders** classifies inputs with built-in rules: sampler seed, steps and cfg, empty-latent size,
+batch and frame count, LoadImage filenames, prompt text by whether it feeds a sampler's positive or negative
+input, and denoise only when the sampler starts from an encoded image. If LiteLLM is configured (`LITELLM_URL`,
+`LITELLM_MODEL` and optionally `LITELLM_API_KEY` in `.env`), the few inputs the rules can't place are sent to the
+LLM, which replies with a list of substitutions — never a rewritten workflow. Comfier shows every proposed change in
+a table; untick any you don't want, add others with **Add by hand**, then choose **Save**. Only the ticked changes
+are written, and nothing else in the JSON changes. Without an LLM, inputs the rules couldn't place are listed so
+you can add them yourself. Edit the LLM's system prompt under **Settings → Workflow assistant**.
 
 To remove a workflow, open it (or use the **⋯** menu on the list) and choose **Delete**. Past results stay; they just
 lose the link back to this style.

@@ -9,6 +9,22 @@ class WorkflowRendererTest < ActiveSupport::TestCase
     assert_equal({ '3' => { 'inputs' => { 'seed' => 42, 'width' => 768 } } }, rendered)
   end
 
+  test 'every numeric placeholder a generation fills stays a number' do
+    numeric = %w[seed width height steps cfg denoise frames duration batch_size]
+    graph = { '1' => { 'class_type' => 'Everything', 'inputs' => numeric.index_with { "{{#{it}}}" } } }
+    workflow = workflows(:sd_image)
+    workflow.update!(graph:)
+    generation = users(:alice).generations.create!(workflow:, prompt: 'x', seed: '5', duration: '2.5', denoise: '0.4',
+                                                   batch_size: '2')
+
+    rendered = WorkflowRenderer.render(graph, generation.placeholder_values).dig('1', 'inputs')
+
+    numeric.each { assert_kind_of Numeric, rendered.fetch(it), "{{#{it}}} rendered as #{rendered[it].inspect}" }
+
+    assert_equal({ 'seed' => 5, 'duration' => 2.5, 'denoise' => 0.4, 'batch_size' => 2 },
+                 rendered.slice('seed', 'duration', 'denoise', 'batch_size'))
+  end
+
   test 'embedded placeholders are interpolated' do
     graph = { '1' => { 'inputs' => { 'text' => 'masterpiece, {{prompt}}, {{seed}}' } } }
 
