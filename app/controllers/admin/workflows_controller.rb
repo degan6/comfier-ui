@@ -54,7 +54,7 @@ module Admin
         return respond_to_suggest_form
       end
 
-      result = PlaceholderSuggester.call(@workflow.graph)
+      result = PlaceholderSuggester.call(@workflow.graph, user: current_user)
       @workflow.graph_json = JSON.pretty_generate(result.graph)
       @placeholder_suggestion = result
       @placeholder_debug = result.debug

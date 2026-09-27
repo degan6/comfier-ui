@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_26_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_26_200000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -41,6 +41,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_26_140000) do
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "activity_logs", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.jsonb "details", default: {}, null: false
+    t.string "ip_address"
+    t.string "kind", null: false
+    t.text "message", null: false
+    t.bigint "subject_id"
+    t.string "subject_type"
+    t.text "user_agent"
+    t.bigint "user_id"
+    t.index ["created_at"], name: "index_activity_logs_on_created_at", order: :desc
+    t.index ["kind", "created_at"], name: "index_activity_logs_on_kind_and_created_at"
+    t.index ["kind"], name: "index_activity_logs_on_kind"
+    t.index ["subject_type", "subject_id"], name: "index_activity_logs_on_subject"
+    t.index ["user_id"], name: "index_activity_logs_on_user_id"
   end
 
   create_table "app_settings", force: :cascade do |t|
@@ -212,6 +229,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_26_140000) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "activity_logs", "users"
   add_foreign_key "generations", "backends", on_delete: :nullify
   add_foreign_key "generations", "users", on_delete: :cascade
   add_foreign_key "generations", "workflows", on_delete: :nullify

@@ -91,5 +91,23 @@ class SessionsTest < ActionDispatch::IntegrationTest
     %w[Image Video Audio Results Shared Queue Settings].each do |label|
       assert_select '.navbar-nav .nav-link', text: /#{label}/
     end
+    assert_select '.navbar-nav .nav-link', text: /Log/, count: 0
+  end
+
+  test 'admins see the log link in the navbar' do
+    sign_in_as users(:admin)
+    get '/image'
+
+    assert_select '.navbar-nav .nav-link', text: /Log/
+  end
+
+  test 'sign-in and sign-out create log entries' do
+    assert_difference('ActivityLog.login.count', 1) do
+      sign_in_as users(:alice)
+    end
+
+    assert_difference('ActivityLog.logout.count', 1) do
+      delete logout_path
+    end
   end
 end

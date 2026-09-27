@@ -1,0 +1,72 @@
+<% content_for :title, 'Log' %>
+
+<div class="d-flex align-items-end justify-content-between mb-3">
+  <div>
+    <h1 class="h-page-title mb-0">Log</h1>
+    <div class="text-13 text-secondary mt-1">
+      <span class="text-body num"><%= @pagy.count %></span> events
+      <% if @kind.present? || @q.present? %>
+        · filtered
+      <% end %>
+    </div>
+  </div>
+</div>
+
+<%= form_with url: admin_activity_logs_path, method: :get, class: 'd-flex flex-wrap gap-2 align-items-center mb-3' do %>
+  <%= text_field_tag :q, @q, class: 'form-control form-control-sm', style: 'max-width: 20rem;',
+                             placeholder: 'Search message, user, IP, details…', autocomplete: 'off' %>
+  <%= hidden_field_tag :kind, @kind if @kind.present? %>
+  <button type="submit" class="btn btn-outline-secondary btn-sm">Search</button>
+  <% if @q.present? %>
+    <%= link_to 'Clear search', admin_activity_logs_path(kind: @kind), class: 'text-12 text-secondary' %>
+  <% end %>
+<% end %>
+
+<div class="d-flex flex-wrap gap-2 mb-3">
+  <%= link_to 'All', admin_activity_logs_path(q: @q.presence), class: ['filter-chip', { active: @kind.blank? }] %>
+  <% ActivityLog.kinds.keys.each do |kind| %>
+    <%= link_to activity_log_kind_label(kind), activity_log_kind_filter_path(kind),
+                class: ['filter-chip', { active: @kind == kind }] %>
+  <% end %>
+</div>
+
+<% if @activity_logs.empty? %>
+  <div class="status-panel status-clear">
+    <p class="text-13 text-secondary mb-0">No log entries match.</p>
+  </div>
+<% else %>
+  <table class="table table-compact table-hover align-middle">
+    <thead>
+      <tr>
+        <th>When</th>
+        <th class="w-status">Type</th>
+        <th>Event</th>
+        <th>User</th>
+        <th>IP</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @activity_logs.each do |log| %>
+        <tr class="row-link" data-controller="row-link" data-row-link-href-value="<%= admin_activity_log_path(log) %>">
+          <td class="text-12 text-secondary"><%= friendly_time(log.created_at) %></td>
+          <td><%= activity_log_kind_badge(log) %></td>
+          <td>
+            <%= link_to log.message.truncate(120), admin_activity_log_path(log), class: 'text-body text-13' %>
+          </td>
+          <td class="text-12">
+            <% if log.user %>
+              <span class="text-body"><%= log.user.display_name %></span>
+            <% else %>
+              <span class="text-secondary">—</span>
+            <% end %>
+          </td>
+          <td class="text-12 text-secondary font-monospace"><%= log.ip_address.presence || '—' %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+
+  <% if @pagy.last > 1 %>
+    <nav class="mt-3 d-flex justify-content-center" aria-label="Pages"><%== @pagy.series_nav(:bootstrap) %></nav>
+  <% end %>
+<% end %>

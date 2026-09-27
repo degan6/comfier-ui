@@ -60,6 +60,8 @@ Rails.application.routes.draw do
     end
     resource :assistant_setting, only: %i[edit update]
 
+    resources :activity_logs, only: %i[index show]
+
     resources :workflows, except: :show do
       member do
         get :models

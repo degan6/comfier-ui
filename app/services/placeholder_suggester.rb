@@ -20,10 +20,11 @@ class PlaceholderSuggester # rubocop:disable Metrics/ClassLength
   WHOLE_PLACEHOLDER = /\A\{\{\s*(\w+)\s*\}\}\z/
   METADATA_KEYS = %w[notes note summary message explanation].freeze
 
-  def self.call(graph) = new(graph).call
+  def self.call(graph, user: nil) = new(graph, user:).call
 
-  def initialize(graph)
+  def initialize(graph, user: nil)
     @original = normalize_graph(graph)
+    @audit_user = user
   end
 
   def call
@@ -51,7 +52,8 @@ class PlaceholderSuggester # rubocop:disable Metrics/ClassLength
   end
 
   def fetch_reply(debug)
-    LiteLlm::Client.chat(system: debug.system_prompt, user: debug.user_message)
+    audit = LiteLlm::Client::AuditContext.new(user: @audit_user, source: 'placeholder_suggester')
+    LiteLlm::Client.chat(system: debug.system_prompt, user: debug.user_message, audit:)
   rescue LiteLlm::Error => e
     raise Error.new(e.message, debug:)
   end

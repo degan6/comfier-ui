@@ -37,6 +37,13 @@ module LiteLlm
           .to_return(body: { choices: [{ message: { content: '{"ok":true}' } }] }.to_json)
 
         assert_equal '{"ok":true}', Client.chat(system: 'system rules', user: 'user payload')
+
+        log = ActivityLog.order(:id).last
+
+        assert_equal 'llm_chat', log.kind
+        assert log.details['success']
+        assert_equal 'system rules', log.details.dig('request', 'messages', 0, 'content')
+        assert_equal '{"ok":true}', log.details['assistant_content']
       end
     end
 

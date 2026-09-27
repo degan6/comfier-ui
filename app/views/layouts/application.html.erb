@@ -37,6 +37,10 @@
                 <% end %>
               <% end %>
             </li>
+            <% if current_user.admin? %>
+              <%= nav_item 'Log', admin_activity_logs_path, icon: 'bi-journal-text',
+                           active: request.path.start_with?(admin_activity_logs_path) %>
+            <% end %>
             <%= nav_item 'Settings', settings_path, icon: 'bi-gear',
                          active: current_page?(settings_path) || request.path.start_with?('/admin') %>
           </ul>

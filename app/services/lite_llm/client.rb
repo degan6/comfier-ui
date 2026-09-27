@@ -9,6 +9,8 @@ module LiteLlm
       OpenSSL::SSL::SSLError, Net::HTTPBadResponse, Net::ProtocolError
     ].freeze
 
+    AuditContext = Data.define(:user, :source)
+
     def self.configured?
       url.present? && model.present?
     end
@@ -27,12 +29,43 @@ module LiteLlm
       ENV.fetch('LITELLM_TIMEOUT_SECONDS', 180).to_i
     end
 
-    def self.chat(system:, user:) = new.chat(system:, user:)
+    def self.chat(system:, user:, audit: nil) = new.chat(system:, user:, audit:)
 
-    def chat(system:, user:)
+    def chat(system:, user:, audit: nil)
       raise Error, 'LiteLLM is not configured (set LITELLM_URL and LITELLM_MODEL in .env)' unless self.class.configured?
 
-      body = {
+      body = request_body(system:, user:)
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      response = post_raw(completions_url, body)
+      duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round
+
+      unless response.is_a?(Net::HTTPSuccess)
+        log_chat(audit:, request: body, duration_ms:, success: false, http_status: response.code,
+                 response_body: response.body)
+        raise Error, "LiteLLM returned HTTP #{response.code}"
+      end
+
+      parsed = JSON.parse(response.body)
+      content = parsed.dig('choices', 0, 'message', 'content')
+      log_chat(audit:, request: body, duration_ms:, success: content.present?, http_status: response.code,
+               response_body: parsed, assistant_content: content)
+      raise Error, 'LiteLLM returned an empty reply' if content.blank?
+
+      content
+    rescue JSON::ParserError
+      log_chat(audit:, request: body, duration_ms:, success: false, http_status: response.code,
+               response_body: response.body, error: 'Invalid JSON response')
+      raise Error, 'LiteLLM returned something that isn\'t JSON'
+    rescue *NETWORK_ERRORS => e
+      duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round if started
+      log_chat(audit:, request: body, duration_ms:, success: false, error: e.message)
+      raise Error, "Couldn't reach LiteLLM: #{e.message}"
+    end
+
+    private
+
+    def request_body(system:, user:)
+      {
         model: self.class.model,
         messages: [
           { role: 'system', content: system },
@@ -40,28 +73,14 @@ module LiteLlm
         ],
         response_format: { type: 'json_object' }
       }
-      response = post_json(completions_url, body)
-      content = response.dig('choices', 0, 'message', 'content')
-      raise Error, 'LiteLLM returned an empty reply' if content.blank?
-
-      content
     end
-
-    private
 
     def completions_url
       URI("#{self.class.url}/v1/chat/completions")
     end
 
-    def post_json(uri, payload)
-      response = http(uri).request(build_request(uri, payload))
-      raise Error, "LiteLLM returned HTTP #{response.code}" unless response.is_a?(Net::HTTPSuccess)
-
-      JSON.parse(response.body)
-    rescue JSON::ParserError
-      raise Error, 'LiteLLM returned something that isn\'t JSON'
-    rescue *NETWORK_ERRORS => e
-      raise Error, "Couldn't reach LiteLLM: #{e.message}"
+    def post_raw(uri, payload)
+      http(uri).request(build_request(uri, payload))
     end
 
     def build_request(uri, payload)
@@ -76,6 +95,30 @@ module LiteLlm
       Net::HTTP.start(uri.host, uri.port,
                       use_ssl: uri.scheme == 'https', open_timeout: 5,
                       read_timeout: self.class.timeout_seconds)
+    end
+
+    def log_chat(audit:, request:, duration_ms:, success:, http_status: nil, response_body: nil,
+                 assistant_content: nil, error: nil)
+      user = audit&.user
+      source = audit&.source.presence || 'lite_llm'
+      outcome = success ? 'succeeded' : 'failed'
+      ActivityLog.record(
+        kind: :llm_chat,
+        user:,
+        message: "LLM #{source} #{outcome} (#{duration_ms}ms)",
+        details: {
+          source:,
+          model: self.class.model,
+          endpoint: completions_url.to_s,
+          duration_ms:,
+          success:,
+          http_status:,
+          error:,
+          request:,
+          response: response_body,
+          assistant_content:
+        }.compact
+      )
     end
   end
 end
