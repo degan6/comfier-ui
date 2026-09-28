@@ -5,6 +5,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [v0.9.1] - 2026-09-28
+
+### Fixed
+- **Chat**: Send works again after the first reply (Turbo composer updates kept the wrong DOM target).
+
 ## [v0.9.0] - 2026-09-28
 
 ### Changed
