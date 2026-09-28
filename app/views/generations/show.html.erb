@@ -13,9 +13,12 @@
     <div class="d-flex align-items-center gap-2 text-13 text-secondary flex-wrap">
       <%= generation_status(@generation) %>
       <span><%= @generation.style_name %></span>
-      <span id="<%= dom_id(@generation, :shared_badge) %>">
+      <span id="<%= dom_id(@generation, :sharing_badges) %>">
         <% if @generation.shared? %>
           <span class="badge text-bg-success-subtle">Shared</span>
+        <% end %>
+        <% if @generation.publicly_linked? %>
+          <span class="badge text-bg-primary-subtle">Public link</span>
         <% end %>
       </span>
       <span>·</span>
@@ -61,18 +64,36 @@
 
 <div class="row g-4">
   <div class="col-lg-8">
+    <% if @generation.hidden_for_review? %>
+      <div class="status-panel status-attention mb-3">
+        <div class="text-13">Hidden from sharing while an admin reviews a report.</div>
+      </div>
+    <% end %>
     <% if @generation.failed? %>
       <div class="status-panel status-attention mb-3">
         <div class="fw-medium mb-1">This didn't work</div>
-        <div class="text-13 text-secondary text-break"><%= @generation.error_message %></div>
+        <div class="text-13 text-secondary text-break" style="white-space: pre-line"><%= @generation.error_message %></div>
+        <% if (details = failure_details_for_viewer(@generation)) %>
+          <details class="mt-2">
+            <summary class="text-12 text-secondary">Details for the server owner</summary>
+            <pre class="text-11 mt-1 mb-0 text-break" style="white-space: pre-wrap"><%= details %></pre>
+          </details>
+        <% end %>
       </div>
     <% elsif @generation.in_progress? %>
       <div class="status-panel status-clear text-center py-5 mb-3">
         <div class="spinner-border text-secondary mb-2" role="status"><span class="visually-hidden">Working</span></div>
         <div class="text-13 text-secondary">
-          <%= @generation.queued? ? 'Waiting for a ComfyUI server…' : 'ComfyUI is working on it. This page updates by itself.' %>
+          <% if @generation.agent_job? %>
+            <%= agent_progress_line(@generation) %>
+          <% else %>
+            <%= @generation.queued? ? 'Waiting for a ComfyUI server…' : 'ComfyUI is working on it. This page updates by itself.' %>
+          <% end %>
         </div>
       </div>
+    <% end %>
+    <% if @generation.backend&.agent? && @generation.finished? %>
+      <div class="text-12 text-secondary mb-2">Ran on <%= @generation.backend.name %></div>
     <% end %>
 
     <div class="d-flex flex-column gap-3">
@@ -140,9 +161,11 @@
       <% end %>
     </div>
 
-    <%= render 'generations/share_controls',
-               generation: @generation,
-               live: @generation.succeeded?,
-               disabled: !@generation.succeeded? %>
+    <div id="<%= dom_id(@generation, :sharing_sidebar) %>">
+      <%= render 'generations/sharing_sidebar',
+                 generation: @generation,
+                 live: @generation.succeeded?,
+                 disabled: !@generation.succeeded? %>
+    </div>
   </div>
 </div>

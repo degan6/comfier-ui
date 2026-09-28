@@ -1,12 +1,7 @@
 require 'test_helper'
 
 class PlaceholderSuggesterTest < ActiveSupport::TestCase
-  ORIGINAL = {
-    '6' => { 'class_type' => 'CLIPTextEncode', '_meta' => { 'title' => 'Positive' },
-             'inputs' => { 'text' => 'a cat on a mat', 'clip' => ['4', 1] } },
-    '7' => { 'class_type' => 'CLIPTextEncode', 'inputs' => { 'text' => 'blurry', 'clip' => ['4', 1] } },
-    '5' => { 'class_type' => 'EmptyLatentImage', 'inputs' => { 'width' => 512, 'height' => 768, 'batch_size' => 1 } }
-  }.freeze
+  COMPLETIONS = 'http://litellm.test/v1/chat/completions'.freeze
 
   setup do
     @previous_url = ENV.fetch('LITELLM_URL', nil)
@@ -20,129 +15,144 @@ class PlaceholderSuggesterTest < ActiveSupport::TestCase
     ENV['LITELLM_MODEL'] = @previous_model
   end
 
-  test 'returns the suggested graph, notes and a diff of placeholder substitutions' do
-    suggested = ORIGINAL.deep_dup
-    suggested['6']['inputs']['text'] = '{{prompt}}'
-    suggested['7']['inputs']['text'] = '{{negative_prompt}}'
-    suggested['5']['inputs']['width'] = '{{width}}'
-    stub_completion(workflow: suggested, notes: 'Replaced prompt and size inputs.')
+  test 'Hunyuan3D image-to-3D is handled by rules alone' do
+    result = PlaceholderSuggester.call(workflow('hunyuan3d'))
 
-    result = PlaceholderSuggester.call(ORIGINAL)
-
-    assert_equal '{{prompt}}', result.graph.dig('6', 'inputs', 'text')
-    assert_equal 'Replaced prompt and size inputs.', result.notes
-    assert_equal 3, result.changes.size
-    assert result.changes.all?(&:placeholder_substitution?)
-    prompt_change = result.changes.find { it.input == 'text' && it.node_id == '6' }
-
-    assert_equal 'Positive', prompt_change.node_label
-    assert_equal '{{prompt}}', prompt_change.to
-    assert_predicate prompt_change, :placeholder_substitution?
+    assert_equal({ '7.seed' => 'seed', '7.steps' => 'steps', '7.cfg' => 'cfg', '4.batch_size' => 'batch_size' },
+                 placed(result))
+    assert_equal :not_needed, result.llm.status
+    assert_empty result.unclassified
+    assert_not_requested :post, COMPLETIONS
   end
 
-  test 'includes LiteLLM debug metadata in the result' do
-    stub_completion(workflow: ORIGINAL, notes: '')
+  test 'Hunyuan3D leaves internal settings, wiring and existing placeholders alone' do
+    result = PlaceholderSuggester.call(workflow('hunyuan3d'))
+    untouched = %w[7.denoise 4.resolution 8.num_chunks 8.octree_resolution 9.threshold 3.shift 10.image
+                   10.filename_prefix 1.ckpt_name 2.image]
 
-    result = PlaceholderSuggester.call(ORIGINAL)
-
-    assert_includes result.debug.user_message, 'Allowed placeholders:'
-    assert_includes result.debug.raw_reply, '"workflow"'
-    assert_equal 'gpt-test', result.debug.model
+    assert_empty untouched & placed(result).keys
+    assert_equal '{{image}}', result.proposed_graph.dig('2', 'inputs', 'image')
+    assert_equal 4096, result.proposed_graph.dig('4', 'inputs', 'resolution')
   end
 
-  test 'rejects replies that change node ids' do
-    suggested = { '99' => ORIGINAL['6'] }
-    stub_completion(workflow: suggested, notes: '')
+  test 'basic SD txt2img exposes everything but denoise' do
+    result = PlaceholderSuggester.call(workflow('sd_txt2img'))
 
-    error = assert_raises(PlaceholderSuggester::Error) { PlaceholderSuggester.call(ORIGINAL) }
-
-    assert_match(/same node IDs/, error.message)
-    assert_includes error.debug.raw_reply, '"workflow"'
+    assert_equal({ '3.seed' => 'seed', '3.steps' => 'steps', '3.cfg' => 'cfg', '5.width' => 'width',
+                   '5.height' => 'height', '5.batch_size' => 'batch_size', '6.text' => 'prompt',
+                   '7.text' => 'negative_prompt' }, placed(result))
+    assert_not_requested :post, COMPLETIONS
   end
 
-  test 'rejects unknown placeholders' do
-    suggested = ORIGINAL.deep_dup
-    suggested['6']['inputs']['text'] = '{{mystery}}'
-    stub_completion(workflow: suggested, notes: '')
+  test 'img2img exposes the image and denoise' do
+    result = PlaceholderSuggester.call(workflow('img2img'))
 
-    error = assert_raises(PlaceholderSuggester::Error) { PlaceholderSuggester.call(ORIGINAL) }
-
-    assert_match(/unknown placeholders: mystery/, error.message)
+    assert_equal 'image', placed(result)['1.image']
+    assert_equal 'denoise', placed(result)['6.denoise']
+    assert_equal 'prompt', placed(result)['4.text']
+    assert_equal 'negative_prompt', placed(result)['5.text']
   end
 
-  test 'does not crash when the model returns a non-hash _meta or inputs on a node' do
-    suggested = ORIGINAL.deep_dup
-    suggested['6']['inputs']['text'] = '{{prompt}}'
-    suggested['6']['_meta'] = ['broken']
-    suggested['7'] = suggested['7'].merge('inputs' => [])
-    stub_completion(workflow: suggested, notes: 'Broken metadata.')
+  test 'conditioning through ConditioningCombine and ControlNetApplyAdvanced keeps its role' do
+    result = PlaceholderSuggester.call(workflow('controlnet'))
 
-    error = assert_raises(PlaceholderSuggester::Error) { PlaceholderSuggester.call(ORIGINAL) }
-
-    assert_match(/API format|same node IDs/, error.message)
-    assert_includes error.debug.raw_reply, '"workflow"'
+    assert_equal 'prompt', placed(result)['2.text']
+    assert_equal 'prompt', placed(result)['3.text']
+    assert_equal 'negative_prompt', placed(result)['5.text']
+    assert_nil placed(result)['6.strength']
   end
 
-  test 'accepts a top-level workflow object when notes are siblings of node ids' do
-    suggested = ORIGINAL.deep_dup
-    suggested['6']['inputs']['text'] = '{{prompt}}'
-    stub_content(suggested.merge('notes' => 'Prompt only.').to_json)
+  test 'Flux custom sampling finds seed, steps and prompt without an LLM' do
+    result = PlaceholderSuggester.call(workflow('flux'), llm: false)
 
-    result = PlaceholderSuggester.call(ORIGINAL)
-
-    assert_equal '{{prompt}}', result.graph.dig('6', 'inputs', 'text')
-    assert_equal 'Prompt only.', result.notes
+    assert_equal 'seed', placed(result)['25.noise_seed']
+    assert_equal 'steps', placed(result)['17.steps']
+    assert_equal 'prompt', placed(result)['6.clip_l']
+    assert_equal 'prompt', placed(result)['6.t5xxl']
+    assert_equal 'width', placed(result)['27.width']
+    assert_nil placed(result)['17.denoise']
+    assert_equal :disabled, result.llm.status
+    assert_equal(%w[6.guidance 26.guidance], result.unclassified.map { "#{it.node}.#{it.input}" })
   end
 
-  test 'accepts replies wrapped in a top-level array' do
-    suggested = ORIGINAL.deep_dup
-    suggested['6']['inputs']['text'] = '{{prompt}}'
-    stub_content([{ workflow: suggested, notes: 'Array wrapper.' }].to_json)
+  test 'the LLM only sees the inputs the rules could not place' do
+    stub_llm(substitutions: [{ node: '26', input: 'guidance', placeholder: 'cfg' }], notes: 'Guidance as cfg.')
 
-    result = PlaceholderSuggester.call(ORIGINAL)
+    result = PlaceholderSuggester.call(workflow('flux'))
 
-    assert_equal '{{prompt}}', result.graph.dig('6', 'inputs', 'text')
-    assert_equal 'Array wrapper.', result.notes
+    assert_equal 'cfg', placed(result)['26.guidance']
+    assert_equal 'llm', result.substitutions.find { it.node == '26' }.source
+    assert_equal 'Guidance as cfg.', result.notes
+    assert_empty result.unclassified
+    assert_requested(:post, COMPLETIONS, times: 1) do |request|
+      lines = JSON.parse(request.body).dig('messages', 1, 'content').lines(chomp: true)
+
+      assert_equal ['node 6 | CLIPTextEncodeFlux "Prompt" | guidance = 3.5 | hint: feeds BasicGuider.conditioning',
+                    'node 26 | FluxGuidance | guidance = 3.5'], lines
+    end
   end
 
-  test 'accepts a workflow value that is JSON-encoded text' do
-    suggested = ORIGINAL.deep_dup
-    suggested['6']['inputs']['text'] = '{{prompt}}'
-    stub_content({ workflow: suggested.to_json, notes: 'Nested JSON string.' }.to_json)
+  test 'an unreachable LLM falls back to the rules and lists what is left' do
+    stub_request(:post, COMPLETIONS).to_raise(Errno::ECONNREFUSED)
 
-    result = PlaceholderSuggester.call(ORIGINAL)
+    result = PlaceholderSuggester.call(workflow('flux'))
 
-    assert_equal '{{prompt}}', result.graph.dig('6', 'inputs', 'text')
-    assert_equal 'Nested JSON string.', result.notes
+    assert_equal :failed, result.llm.status
+    assert_match(/Couldn't reach LiteLLM/, result.llm.failure)
+    assert_equal 'seed', placed(result)['25.noise_seed']
+    assert_equal 2, result.unclassified.size
   end
 
-  test 'does not crash when the model returns a top-level JSON array without a workflow object' do
-    stub_content(['not a workflow'].to_json)
+  test 'running on its own output finds nothing new' do
+    %w[hunyuan3d sd_txt2img img2img controlnet flux].each do |name|
+      first = PlaceholderSuggester.call(workflow(name), llm: false)
+      second = PlaceholderSuggester.call(first.proposed_graph, llm: false)
 
-    error = assert_raises(PlaceholderSuggester::Error) { PlaceholderSuggester.call(ORIGINAL) }
-
-    assert_match(/workflow object/, error.message)
-    assert_includes error.debug.raw_reply, 'not a workflow'
+      assert_empty second.substitutions, "#{name} changed on a second pass"
+      assert_equal first.proposed_graph, second.proposed_graph
+    end
   end
 
-  test 'flags changes that are not exact placeholder substitutions' do
-    suggested = ORIGINAL.deep_dup
-    suggested['6']['inputs']['text'] = 'prefix {{prompt}}'
-    stub_completion(workflow: suggested, notes: '')
+  test 'accepts raw JSON with bare placeholders' do
+    text = '{"3": {"class_type": "KSampler", "inputs": {"seed": {{seed}}, "steps": 20, "cfg": 7}}}'
 
-    result = PlaceholderSuggester.call(ORIGINAL)
+    result = PlaceholderSuggester.call(text, llm: false)
 
-    assert_not result.changes.sole.placeholder_substitution?
+    assert_equal({ '3.steps' => 'steps', '3.cfg' => 'cfg' }, placed(result))
+  end
+
+  test 'rejects UI-format uploads with the export hint' do
+    error = assert_raises(PlaceholderSuggester::Error) do
+      PlaceholderSuggester.call({ 'nodes' => [], 'links' => [], 'version' => 0.4 }.to_json)
+    end
+
+    assert_equal 'This is a UI-format workflow. In ComfyUI, use Export (API) and upload that file.', error.message
+  end
+
+  test 'apply keeps only valid reviewed substitutions' do
+    graph = workflow('sd_txt2img')
+    reviewed = [substitution('3', 'seed', 'seed', 'manual'), substitution('3', 'model', 'prompt', 'manual')]
+
+    applied = PlaceholderSuggester.apply(graph, reviewed)
+
+    assert_equal '{{seed}}', applied.graph.dig('3', 'inputs', 'seed')
+    assert_equal ['4', 0], applied.graph.dig('3', 'inputs', 'model')
+    assert_equal ['node 3 input "model" is wired to another node'], applied.errors
+    assert_equal 156_680_208_700_286, graph.dig('3', 'inputs', 'seed')
   end
 
   private
 
-  def stub_completion(workflow:, notes:)
-    stub_content({ workflow:, notes: }.to_json)
+  def workflow(name) = JSON.parse(file_fixture("workflows/#{name}.json").read)
+
+  def placed(result) = result.substitutions.to_h { ["#{it.node}.#{it.input}", it.placeholder] }
+
+  def substitution(node, input, placeholder, source)
+    PlaceholderSuggester::Substitution.new(node:, input:, placeholder:, old_value: nil, source:)
   end
 
-  def stub_content(content)
-    stub_request(:post, 'http://litellm.test/v1/chat/completions')
-      .to_return(body: { choices: [{ message: { content: } }] }.to_json)
+  def stub_llm(substitutions:, notes:)
+    stub_request(:post, COMPLETIONS)
+      .to_return(body: { choices: [{ message: { content: { substitutions:, notes: }.to_json } }] }.to_json)
   end
 end

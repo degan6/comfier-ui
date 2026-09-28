@@ -1,0 +1,293 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://comfier.example/protocol/agent-v1.schema.json",
+  "title": "Comfier Agent Protocol v1",
+  "type": "object",
+  "required": ["type"],
+  "properties": {
+    "type": { "type": "string", "maxLength": 64 }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/hello" },
+    { "$ref": "#/$defs/status" },
+    { "$ref": "#/$defs/inventory" },
+    { "$ref": "#/$defs/object_info" },
+    { "$ref": "#/$defs/job_request" },
+    { "$ref": "#/$defs/job_accepted" },
+    { "$ref": "#/$defs/job_rejected" },
+    { "$ref": "#/$defs/job_progress" },
+    { "$ref": "#/$defs/job_completed" },
+    { "$ref": "#/$defs/job_failed" },
+    { "$ref": "#/$defs/job_cancelled" },
+    { "$ref": "#/$defs/job_assign" },
+    { "$ref": "#/$defs/job_cancel" },
+    { "$ref": "#/$defs/model_download" },
+    { "$ref": "#/$defs/model_download_progress" },
+    { "$ref": "#/$defs/model_download_completed" },
+    { "$ref": "#/$defs/model_download_failed" },
+    { "$ref": "#/$defs/model_download_cancelled" },
+    { "$ref": "#/$defs/model_download_cancel" },
+    { "$ref": "#/$defs/config_pause" },
+    { "$ref": "#/$defs/config_resume" },
+    { "$ref": "#/$defs/inventory_refresh" },
+    { "$ref": "#/$defs/object_info_request" },
+    { "$ref": "#/$defs/bye" }
+  ],
+  "$defs": {
+    "hello": {
+      "type": "object",
+      "required": ["type", "protocol", "agent_version", "backend_name"],
+      "properties": {
+        "type": { "const": "hello" },
+        "protocol": { "type": "integer", "const": 1 },
+        "agent_version": { "type": "string", "maxLength": 32 },
+        "backend_name": { "type": "string", "maxLength": 256 },
+        "comfyui_version": { "type": "string", "maxLength": 64 },
+        "resources": { "type": "object" },
+        "system": { "type": "object" },
+        "active_jobs": { "type": "array" },
+        "active_downloads": { "type": "array" },
+        "model_downloads_enabled": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "status": {
+      "type": "object",
+      "required": ["type", "state", "accepting"],
+      "properties": {
+        "type": { "const": "status" },
+        "state": { "type": "string", "maxLength": 32 },
+        "accepting": { "type": "boolean" },
+        "accepting_reason": { "type": "string", "maxLength": 500 },
+        "comfier_jobs": { "type": "array" },
+        "local_queue": { "type": "object" },
+        "vram_free": { "type": "integer" },
+        "disk_free": { "type": "object" },
+        "downloads": { "type": "array" },
+        "uptime_s": { "type": "integer" },
+        "resources": { "type": "object" },
+        "comfyui_version": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "inventory": {
+      "type": "object",
+      "required": ["type", "hash", "models", "node_types"],
+      "properties": {
+        "type": { "const": "inventory" },
+        "hash": { "type": "string", "maxLength": 128 },
+        "models": {
+          "type": "object",
+          "maxProperties": 200,
+          "additionalProperties": {
+            "type": "array",
+            "maxItems": 50000,
+            "items": { "type": "string", "maxLength": 512 }
+          }
+        },
+        "node_types": { "type": "array", "maxItems": 20000, "items": { "type": "string", "maxLength": 256 } },
+        "object_info_hash": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "object_info": {
+      "type": "object",
+      "required": ["type", "hash", "index", "count", "encoding", "data"],
+      "properties": {
+        "type": { "const": "object_info" },
+        "hash": { "type": "string", "maxLength": 128 },
+        "index": { "type": "integer", "minimum": 0 },
+        "count": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "encoding": { "const": "gzip+base64" },
+        "data": { "type": "string", "maxLength": 800000 },
+        "bytes": { "type": "integer" }
+      }
+    },
+    "job_request": {
+      "type": "object",
+      "required": ["type", "request_id"],
+      "properties": {
+        "type": { "const": "job.request" },
+        "request_id": { "type": "string", "maxLength": 64 }
+      }
+    },
+    "job_accepted": {
+      "type": "object",
+      "required": ["type", "job_id"],
+      "properties": {
+        "type": { "const": "job.accepted" },
+        "job_id": { "type": "string", "maxLength": 64 }
+      }
+    },
+    "job_rejected": {
+      "type": "object",
+      "required": ["type", "job_id", "reason"],
+      "properties": {
+        "type": { "const": "job.rejected" },
+        "job_id": { "type": "string" },
+        "reason": { "type": "string" },
+        "detail": { "type": "string", "maxLength": 2000 }
+      }
+    },
+    "job_progress": {
+      "type": "object",
+      "required": ["type", "job_id", "phase", "progress"],
+      "properties": {
+        "type": { "const": "job.progress" },
+        "job_id": { "type": "string" },
+        "phase": { "type": "string" },
+        "progress": { "type": "number" },
+        "node": { "type": "string" },
+        "queue_position": { "type": "integer" }
+      }
+    },
+    "job_completed": {
+      "type": "object",
+      "required": ["type", "job_id", "outputs"],
+      "properties": {
+        "type": { "const": "job.completed" },
+        "job_id": { "type": "string" },
+        "prompt_id": { "type": "string" },
+        "outputs": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "type": "object",
+            "required": ["upload_id"],
+            "properties": { "upload_id": { "type": "string", "maxLength": 64 } }
+          }
+        },
+        "duration_ms": { "type": "integer" },
+        "timings": { "type": "object" },
+        "warning": { "type": "string" }
+      }
+    },
+    "job_failed": {
+      "type": "object",
+      "required": ["type", "job_id", "stage", "error"],
+      "properties": {
+        "type": { "const": "job.failed" },
+        "job_id": { "type": "string" },
+        "stage": { "type": "string" },
+        "error": { "type": "string" },
+        "timings": { "type": "object" },
+        "node_errors": { "type": "object" },
+        "node": { "type": "string" },
+        "exception_type": { "type": "string" },
+        "traceback_tail": { "type": "string", "maxLength": 8000 }
+      }
+    },
+    "job_cancelled": {
+      "type": "object",
+      "required": ["type", "job_id"],
+      "properties": {
+        "type": { "const": "job.cancelled" },
+        "job_id": { "type": "string" }
+      }
+    },
+    "job_assign": {
+      "type": "object",
+      "required": ["type", "request_id", "job_id", "workflow", "upload_url"],
+      "properties": {
+        "type": { "const": "job.assign" },
+        "request_id": { "type": "string" },
+        "job_id": { "type": "string" },
+        "workflow": { "type": "object" },
+        "inputs": { "type": "array" },
+        "upload_url": { "type": "string" },
+        "requires": { "type": "object" },
+        "timeout_s": { "type": "integer" }
+      }
+    },
+    "job_cancel": {
+      "type": "object",
+      "required": ["type", "job_id"],
+      "properties": { "type": { "const": "job.cancel" }, "job_id": { "type": "string" } }
+    },
+    "model_download": {
+      "type": "object",
+      "required": ["type", "download_id", "url", "folder", "filename"],
+      "properties": {
+        "type": { "const": "model.download" },
+        "download_id": { "type": "string" },
+        "url": { "type": "string" },
+        "folder": { "type": "string" },
+        "filename": { "type": "string" },
+        "sha256": { "type": "string" },
+        "bytes": { "type": "integer" },
+        "headers": { "type": "object" },
+        "overwrite": { "type": "boolean" }
+      }
+    },
+    "model_download_progress": {
+      "type": "object",
+      "required": ["type", "download_id"],
+      "properties": {
+        "type": { "const": "model.download.progress" },
+        "download_id": { "type": "string" },
+        "state": { "type": "string" },
+        "bytes_done": { "type": "integer" },
+        "bytes_total": { "type": "integer" },
+        "speed_bps": { "type": "integer" }
+      }
+    },
+    "model_download_completed": {
+      "type": "object",
+      "required": ["type", "download_id"],
+      "properties": {
+        "type": { "const": "model.download.completed" },
+        "download_id": { "type": "string" },
+        "folder": { "type": "string" },
+        "filename": { "type": "string" },
+        "bytes": { "type": "integer" },
+        "sha256": { "type": "string" },
+        "already_present": { "type": "boolean" }
+      }
+    },
+    "model_download_failed": {
+      "type": "object",
+      "required": ["type", "download_id", "reason"],
+      "properties": {
+        "type": { "const": "model.download.failed" },
+        "download_id": { "type": "string" },
+        "reason": { "type": "string" },
+        "detail": { "type": "string" }
+      }
+    },
+    "model_download_cancelled": {
+      "type": "object",
+      "required": ["type", "download_id"],
+      "properties": { "type": { "const": "model.download.cancelled" }, "download_id": { "type": "string" } }
+    },
+    "model_download_cancel": {
+      "type": "object",
+      "required": ["type", "download_id"],
+      "properties": { "type": { "const": "model.download.cancel" }, "download_id": { "type": "string" } }
+    },
+    "config_pause": {
+      "type": "object",
+      "required": ["type"],
+      "properties": { "type": { "const": "config.pause" } }
+    },
+    "config_resume": {
+      "type": "object",
+      "required": ["type"],
+      "properties": { "type": { "const": "config.resume" } }
+    },
+    "inventory_refresh": {
+      "type": "object",
+      "required": ["type"],
+      "properties": { "type": { "const": "inventory.refresh" } }
+    },
+    "object_info_request": {
+      "type": "object",
+      "required": ["type"],
+      "properties": { "type": { "const": "object_info.request" } }
+    },
+    "bye": {
+      "type": "object",
+      "required": ["type"],
+      "properties": { "type": { "const": "bye" }, "reason": { "type": "string" } }
+    }
+  }
+}

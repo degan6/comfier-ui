@@ -25,6 +25,13 @@ jobs:
       - name: Test the ComfyUI downloader node
         run: python -m unittest discover -s comfyui/tests -v
 
+      - name: Test the Comfier agent package
+        run: |
+          pip install aiohttp pytest pytest-asyncio jsonschema ruff
+          pip install -e "comfyui/comfier_agent[test]"
+          ruff check comfyui/comfier_agent/comfier_agent comfyui/comfier_agent/tests
+          pytest comfyui/comfier_agent/tests -v
+
   test:
     runs-on: ubuntu-latest
 
@@ -55,3 +62,46 @@ jobs:
           RAILS_ENV: test
           DATABASE_URL: postgres://postgres:postgres@localhost:5432
         run: bin/rails db:test:prepare test
+
+  agent_e2e:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: --health-cmd="pg_isready" --health-interval=10s --health-timeout=5s --health-retries=3
+      redis:
+        image: redis:8.10-alpine
+        ports:
+          - 6379:6379
+        options: --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=3s --health-retries=10
+
+    steps:
+      - name: Install packages
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev libvips
+
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install the agent
+        run: pip install aiohttp -e comfyui/comfier_agent
+
+      - name: Run the agent end-to-end test
+        env:
+          E2E_REDIS_URL: redis://localhost:6379/15
+        run: script/agent_e2e

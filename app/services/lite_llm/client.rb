@@ -4,10 +4,16 @@ require 'json'
 module LiteLlm
   # OpenAI-compatible chat client for a LiteLLM proxy.
   class Client
+    include Http
+
     NETWORK_ERRORS = [
       Timeout::Error, SocketError, SystemCallError, EOFError, IOError,
       OpenSSL::SSL::SSLError, Net::HTTPBadResponse, Net::ProtocolError
     ].freeze
+
+    AuditContext = Data.define(:user, :source)
+    ChatLog = Data.define(:audit, :request, :duration_ms, :success, :http_status, :response_body, :assistant_content,
+                          :error)
 
     def self.configured?
       url.present? && model.present?
@@ -27,55 +33,90 @@ module LiteLlm
       ENV.fetch('LITELLM_TIMEOUT_SECONDS', 180).to_i
     end
 
-    def self.chat(system:, user:) = new.chat(system:, user:)
+    def self.chat(system:, user:, audit: nil, **) = new.chat(system:, user:, audit:, **)
 
-    def chat(system:, user:)
+    # `history` is earlier user/assistant turns, sent between the system prompt and `user`.
+    # `json_schema` ({ name:, schema: }) asks for structured output; LiteLLM translates it for Ollama,
+    # llama.cpp and LM Studio. Without it the reply is only held to being a JSON object.
+    def chat(system:, user:, audit: nil, **)
       raise Error, 'LiteLLM is not configured (set LITELLM_URL and LITELLM_MODEL in .env)' unless self.class.configured?
 
-      body = {
-        model: self.class.model,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user }
-        ],
-        response_format: { type: 'json_object' }
-      }
-      response = post_json(completions_url, body)
-      content = response.dig('choices', 0, 'message', 'content')
+      @audit = audit
+      @body = request_body(system:, user:, **)
+      @started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      deliver_chat
+    rescue *NETWORK_ERRORS => e
+      record_chat(chat_log(success: false, duration_ms: elapsed_ms, error: e.message))
+      raise Error, "Couldn't reach LiteLLM: #{e.message}"
+    end
+
+    private
+
+    def deliver_chat
+      response = post_json(completions_url, @body)
+      duration_ms = elapsed_ms
+      return handle_http_error(response, duration_ms) unless response.is_a?(Net::HTTPSuccess)
+
+      handle_success_body(response, duration_ms)
+    rescue JSON::ParserError
+      record_chat(chat_log(success: false, duration_ms:, http_status: response.code, response_body: response.body,
+                           error: 'Invalid JSON response'))
+      raise Error, 'LiteLLM returned something that isn\'t JSON'
+    end
+
+    def handle_http_error(response, duration_ms)
+      record_chat(chat_log(success: false, duration_ms:, http_status: response.code, response_body: response.body))
+      raise Error, "LiteLLM returned HTTP #{response.code}"
+    end
+
+    def handle_success_body(response, duration_ms)
+      parsed = JSON.parse(response.body)
+      content = parsed.dig('choices', 0, 'message', 'content')
+      record_chat(chat_log(success: content.present?, duration_ms:, http_status: response.code, response_body: parsed,
+                           assistant_content: content))
       raise Error, 'LiteLLM returned an empty reply' if content.blank?
 
       content
     end
 
-    private
+    def elapsed_ms
+      ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - @started) * 1000).round
+    end
+
+    def chat_log(**attrs)
+      ChatLog.new(
+        audit: @audit, request: @body,
+        duration_ms: attrs.fetch(:duration_ms),
+        success: attrs.fetch(:success),
+        http_status: attrs[:http_status],
+        response_body: attrs[:response_body],
+        assistant_content: attrs[:assistant_content],
+        error: attrs[:error]
+      )
+    end
+
+    def request_body(system:, user:, history: [], temperature: nil, json_schema: nil)
+      {
+        model: self.class.model,
+        messages: [{ role: 'system', content: system }, *history, { role: 'user', content: user }],
+        temperature:,
+        response_format: response_format(json_schema)
+      }.compact
+    end
+
+    def response_format(json_schema)
+      return { type: 'json_object' } unless json_schema
+
+      { type: 'json_schema', json_schema: { name: json_schema.fetch(:name), strict: true,
+                                            schema: json_schema.fetch(:schema) } }
+    end
 
     def completions_url
       URI("#{self.class.url}/v1/chat/completions")
     end
 
-    def post_json(uri, payload)
-      response = http(uri).request(build_request(uri, payload))
-      raise Error, "LiteLLM returned HTTP #{response.code}" unless response.is_a?(Net::HTTPSuccess)
-
-      JSON.parse(response.body)
-    rescue JSON::ParserError
-      raise Error, 'LiteLLM returned something that isn\'t JSON'
-    rescue *NETWORK_ERRORS => e
-      raise Error, "Couldn't reach LiteLLM: #{e.message}"
-    end
-
-    def build_request(uri, payload)
-      request = Net::HTTP::Post.new(uri)
-      request['Content-Type'] = 'application/json'
-      request['Authorization'] = "Bearer #{self.class.api_key}" if self.class.api_key.present?
-      request.body = JSON.generate(payload)
-      request
-    end
-
-    def http(uri)
-      Net::HTTP.start(uri.host, uri.port,
-                      use_ssl: uri.scheme == 'https', open_timeout: 5,
-                      read_timeout: self.class.timeout_seconds)
+    def record_chat(entry)
+      ActivityRecorder.log(entry, endpoint: completions_url.to_s, model: self.class.model)
     end
   end
 end

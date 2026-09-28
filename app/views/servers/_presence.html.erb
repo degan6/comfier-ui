@@ -1,0 +1,64 @@
+<% setup = local_assigns.fetch(:setup, false) %>
+<% hello = Agent::Presence.hello(backend) %>
+<% status = Agent::Presence.status(backend) || {} %>
+<% online = Agent::Presence.online?(backend) %>
+<div id="server_presence_<%= backend.id %>" class="sidebar-card">
+  <div class="d-flex justify-content-between align-items-start">
+    <div class="h-section-label mb-1">Status</div>
+    <%= server_availability(backend) %>
+  </div>
+
+  <% if online %>
+    <% if backend.connected_at && backend.connected_at > 10.minutes.ago %>
+      <div class="status-panel status-clear mb-2 text-13">Your server is connected.</div>
+    <% end %>
+    <dl class="row text-12 mb-0">
+      <dt class="col-5 text-secondary fw-normal">GPU</dt><dd class="col-7 mb-1"><%= gpu_line(backend) %></dd>
+      <% if status['vram_free'] %>
+        <dt class="col-5 text-secondary fw-normal">Free VRAM</dt><dd class="col-7 mb-1"><%= human_bytes(status['vram_free']) %></dd>
+      <% end %>
+      <% if (disk = Agent::Presence.disk_free(backend)) %>
+        <dt class="col-5 text-secondary fw-normal">Free disk</dt>
+        <dd class="col-7 mb-1 <%= 'text-warning fw-medium' if disk < AgentTiming::MIN_FREE_DISK_GB.gigabytes * 2 %>"><%= human_bytes(disk) %></dd>
+      <% end %>
+      <dt class="col-5 text-secondary fw-normal">ComfyUI</dt><dd class="col-7 mb-1"><%= backend.comfyui_version.presence || '—' %></dd>
+      <dt class="col-5 text-secondary fw-normal">Models</dt>
+      <dd class="col-7 mb-1 num"><%= backend.backend_inventory&.model_count || '—' %></dd>
+      <dt class="col-5 text-secondary fw-normal">Node types</dt>
+      <dd class="col-7 mb-1 num"><%= backend.backend_inventory&.node_type_count || '—' %></dd>
+      <dt class="col-5 text-secondary fw-normal">Waiting jobs</dt>
+      <dd class="col-7 mb-1 num"><%= backend.generations.agent_waiting.count %></dd>
+    </dl>
+    <% if status['accepting'] == false && status['accepting_reason'].present? %>
+      <div class="text-12 text-warning mt-2"><%= status['accepting_reason'] %></div>
+    <% end %>
+    <% if Agent::Hub.flapping?(backend.id) %>
+      <div class="text-12 text-warning mt-2">This key appears to be in use on two machines. Each one keeps disconnecting the other.</div>
+    <% end %>
+  <% else %>
+    <% if backend.connected_at.nil? %>
+      <p class="text-13 mb-2">Waiting for <%= backend.name %> to connect…</p>
+      <% delay = [(backend.created_at + 2.minutes - Time.current).ceil, 0].max %>
+      <div data-controller="reveal" data-reveal-after-value="<%= delay %>" class="<%= 'd-none' if delay.positive? %>">
+        <div class="text-12 text-secondary">
+          <div class="fw-medium text-body mb-1">Still nothing? Check that:</div>
+          <ul class="ps-3 mb-0">
+            <li>ComfyUI was restarted after installing the agent</li>
+            <li>The ComfyUI log shows “Comfier Agent” starting without errors</li>
+            <li><code>COMFIER_URL</code> is <code><%= Agent::Dispatcher.base_url %></code></li>
+            <li>The key starts with <code><%= backend.backend_keys.active.first&.display %></code></li>
+            <li>The machine can reach this site over HTTPS and WebSockets aren't blocked by a proxy</li>
+          </ul>
+        </div>
+      </div>
+    <% else %>
+      <p class="text-13 text-secondary mb-0">
+        Offline<%= " since " if backend.offline_since %><%= friendly_time(backend.offline_since) %>
+        <% if backend.offline_reason.present? %>· <%= backend.offline_reason.humanize(capitalize: false) %><% end %>
+      </p>
+    <% end %>
+    <% if (hint = rejected_key_hint(backend)) %>
+      <div class="text-12 text-warning mt-2"><%= hint %></div>
+    <% end %>
+  <% end %>
+</div>

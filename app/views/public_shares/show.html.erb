@@ -1,0 +1,22 @@
+<% content_for :title, 'Shared result' %>
+<% content_for :head do %>
+  <meta name="robots" content="noindex">
+<% end %>
+
+<div class="mx-auto" style="max-width: 56rem;">
+  <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+    <h1 class="h-page-title mb-0">Shared result</h1>
+    <%= render 'reports/modal', generation: @generation, form_url: public_share_report_path(@generation.public_token),
+                                modal_id: 'public_report_modal' %>
+  </div>
+
+  <div class="d-flex flex-column gap-3 mb-4">
+    <% @generation.outputs.each_with_index do |output, index| %>
+      <figure class="output-full mb-0">
+        <%= public_output_preview(@generation, output, index, controls: true) %>
+      </figure>
+    <% end %>
+  </div>
+
+  <p class="text-12 text-secondary text-center mb-0">Made with Comfier</p>
+</div>

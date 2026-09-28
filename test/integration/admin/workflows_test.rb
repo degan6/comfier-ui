@@ -43,7 +43,7 @@ module Admin
       assert_select '.h-section-label', text: 'ComfyUI exports'
       assert_select 'input[type=file][name="workflow[graph_file]"]'
       assert_select 'input[type=file][name="workflow[models_file]"]'
-      assert_select 'button[disabled]', text: 'Suggest placeholders'
+      assert_select 'button[name=suggest_placeholders]:not([disabled])', text: /Suggest placeholders/
     end
 
     test 'adding a workflow from pasted JSON' do
@@ -136,32 +136,70 @@ module Admin
       assert_equal 'https://hf.test/sd15.safetensors', workflow.reload.required_models.first.url
     end
 
-    test 'suggest placeholders rewrites the JSON without saving' do
+    test 'suggest placeholders proposes a review table without changing the JSON or saving' do
       workflow = workflows(:sd_image)
-      literal_graph = workflow.graph.deep_dup
-      literal_graph['6']['inputs']['text'] = 'a cat on a mat'
-      workflow.update!(graph: literal_graph)
-      suggested = literal_graph.deep_dup
-      suggested['6']['inputs']['text'] = '{{prompt}}'
-      with_env('LITELLM_URL' => 'http://litellm.test', 'LITELLM_MODEL' => 'gpt-test') do
-        stub_request(:post, 'http://litellm.test/v1/chat/completions')
-          .to_return(body: {
-            choices: [{ message: { content: { workflow: suggested, notes: 'Prompt only.' }.to_json } }]
-          }.to_json)
+      literal = literal_graph(workflow)
+      workflow.update!(graph: literal)
 
-        patch admin_workflow_path(workflow),
-              params: { suggest_placeholders: '1', workflow: { name: workflow.name, kind: workflow.kind,
-                                                               graph_json: JSON.pretty_generate(literal_graph) } },
-              as: :turbo_stream
-      end
+      patch admin_workflow_path(workflow),
+            params: { suggest_placeholders: '1', workflow: { name: workflow.name, kind: workflow.kind,
+                                                             graph_json: JSON.pretty_generate(literal) } },
+            as: :turbo_stream
 
       assert_response :success
-      assert_select 'turbo-stream[action=replace][target=workflow_placeholder_panel]'
-      assert_select 'turbo-stream[action=replace][target=workflow_graph_json_section]'
-      assert_select '.h-section-label', text: 'LiteLLM request'
-      assert_select 'summary', text: 'Raw reply'
-      assert_select 'textarea#workflow_graph_json', text: /"text": "{{prompt}}"/m
+      assert_select 'turbo-stream[action=replace][target=workflow_placeholder_panel]' do
+        assert_select 'tbody tr', 4
+        assert_select 'input[type=checkbox][name="placeholder_substitutions[0][apply]"][checked]'
+        assert_select 'td code', text: '{{prompt}}'
+        assert_select 'td', text: '"a cat on a mat"'
+      end
+      assert_select 'textarea#workflow_graph_json', text: /"text": "a cat on a mat"/m
       assert_equal 'a cat on a mat', workflow.reload.graph.dig('6', 'inputs', 'text')
+    end
+
+    test 'the placeholder review offers the remaining literal inputs and the details' do
+      workflow = workflows(:sd_image)
+
+      patch admin_workflow_path(workflow),
+            params: { suggest_placeholders: '1',
+                      workflow: { graph_json: JSON.pretty_generate(literal_graph(workflow)) } },
+            as: :turbo_stream
+
+      assert_select 'select[data-placeholder-review-target=target] option', text: /filename_prefix/
+      assert_select 'select[data-placeholder-review-target=target] option', text: /seed/, count: 0
+      assert_select 'template[data-placeholder-review-target=template] ' \
+                    'input[name="placeholder_substitutions[__INDEX__][source]"][value=manual]'
+      assert_select 'summary', text: 'Details'
+      assert_select 'p', text: /The rules classified every input/
+    end
+
+    test 'suggest placeholders explains a UI-format upload' do
+      patch admin_workflow_path(workflows(:sd_image)),
+            params: { suggest_placeholders: '1', workflow: { graph_json: ui_export.to_json } }, as: :turbo_stream
+
+      assert_response :unprocessable_content
+      assert_select '.alert-danger', text: /UI-format workflow. In ComfyUI, use Export \(API\)/
+    end
+
+    test 'saving applies only the ticked placeholder rows' do
+      workflow = workflows(:sd_image)
+      literal = literal_graph(workflow)
+      rows = {
+        '0' => { node: '6', input: 'text', placeholder: 'prompt', source: 'rule', apply: '1' },
+        '1' => { node: '3', input: 'steps', placeholder: 'steps', source: 'rule' },
+        '2' => { node: '3', input: 'model', placeholder: 'image', source: 'manual', apply: '1' }
+      }
+
+      patch admin_workflow_path(workflow),
+            params: { workflow: { graph_json: JSON.pretty_generate(literal) }, placeholder_substitutions: rows }
+
+      assert_redirected_to edit_admin_workflow_path(workflow)
+      assert_match(/Applied 1 placeholder. Skipped 1: node 3 input "model" is wired/, flash[:notice])
+      graph = workflow.reload.graph
+
+      assert_equal '{{prompt}}', graph.dig('6', 'inputs', 'text')
+      assert_equal 20, graph.dig('3', 'inputs', 'steps')
+      assert_equal ['4', 0], graph.dig('3', 'inputs', 'model')
     end
 
     test 'download links can be imported from a UI-format export' do
@@ -300,7 +338,7 @@ module Admin
       get models_admin_workflow_path(workflows(:sd_image))
 
       assert_select 'button', text: /Install/, count: 0
-      assert_select '.status-panel li', text: /Not in ComfyUI-Manager's catalog.*downloader node on GPU box/m
+      assert_select '.status-panel li', text: /Not in ComfyUI-Manager's catalog.*Switch GPU box to the Comfier Agent/m
 
       catalog = { 'checkpoints/v1-5-pruned-emaonly-fp16.safetensors' => 'https://hf.test/sd15' }
       backends(:gpu).update!(manager_catalog: catalog)
@@ -344,6 +382,14 @@ module Admin
     end
 
     private
+
+    # The SD fixture with its prompt, size and seed written out as the literals a fresh export has.
+    def literal_graph(workflow)
+      workflow.graph.deep_dup.tap do |graph|
+        graph['6']['inputs']['text'] = 'a cat on a mat'
+        graph['3']['inputs']['seed'] = 42
+      end
+    end
 
     def ui_export
       { nodes: [{ id: 4, type: 'CheckpointLoaderSimple', properties: { models: [

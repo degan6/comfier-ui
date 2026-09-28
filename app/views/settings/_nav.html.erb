@@ -1,7 +1,8 @@
 <nav class="settings-nav" aria-label="Settings">
   <% if current_user.admin? %>
     <% attention = @nav_unhealthy_backends.to_i + (@nav_backend_count.to_i.zero? ? 1 : 0) +
-                   @nav_kinds_without_workflows.to_a.size + @nav_workflows_missing_models.to_i %>
+                   @nav_kinds_without_workflows.to_a.size + @nav_workflows_missing_models.to_i +
+                   @nav_open_reports.to_i %>
     <% if attention.positive? %>
       <div class="h-section-label">⚠ Needs attention</div>
       <% if @nav_backend_count.to_i.zero? %>
@@ -19,15 +20,28 @@
         <%= settings_nav_item 'Missing models', admin_workflows_path, icon: 'bi-box-seam',
                               count: @nav_workflows_missing_models, attention: true %>
       <% end %>
+      <% if @nav_open_reports.to_i.positive? %>
+        <%= settings_nav_item 'Open reports', admin_reports_path, icon: 'bi-exclamation-triangle',
+                              count: @nav_open_reports, attention: true %>
+      <% end %>
     <% end %>
   <% end %>
 
   <div class="h-section-label">You</div>
   <%= settings_nav_item 'Preferences', settings_path, icon: 'bi-sliders' %>
+  <%= settings_nav_item 'Public links', public_links_path, icon: 'bi-link-45deg', count: @nav_public_link_count %>
+  <% if current_user.admin? || current_user.owned_backends.agent.kept.exists? %>
+    <%= settings_nav_item 'Download tokens', source_credentials_path, icon: 'bi-key' %>
+  <% end %>
 
   <% if current_user.admin? %>
     <div class="h-section-label">Admin</div>
+    <%= settings_nav_item 'Log', admin_activity_logs_path, icon: 'bi-journal-text' %>
+    <%= settings_nav_item 'Reports', admin_reports_path, icon: 'bi-exclamation-triangle', count: @nav_open_reports %>
+    <%= settings_nav_item 'Users', admin_users_path, icon: 'bi-people', count: @nav_user_count %>
     <%= settings_nav_item 'Backends', admin_backends_path, icon: 'bi-hdd-network', count: @nav_backend_count %>
+    <%= settings_nav_item 'Server overview', admin_server_overview_path, icon: 'bi-speedometer2' %>
+    <%= settings_nav_item 'Global download tokens', admin_source_credentials_path, icon: 'bi-key' %>
     <%= settings_nav_item 'Workflows', admin_workflows_path, icon: 'bi-diagram-3', count: @nav_workflow_count %>
     <%= settings_nav_item 'Notifications', edit_admin_app_setting_path, icon: 'bi-bell' %>
     <%= settings_nav_item 'Workflow assistant', edit_admin_assistant_setting_path, icon: 'bi-magic' %>

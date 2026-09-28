@@ -38,5 +38,8 @@
       </span>
       <%= friendly_time(generation.created_at) %>
     </div>
+    <% if generation.agent_job? && generation.in_progress? %>
+      <div class="text-12 text-secondary text-truncate mt-1"><%= agent_progress_line(generation) %></div>
+    <% end %>
   </div>
 <% end %>

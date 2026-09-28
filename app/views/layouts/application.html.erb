@@ -37,6 +37,14 @@
                 <% end %>
               <% end %>
             </li>
+            <% if current_user.admin? || BackendPolicy.new(current_user).listable_backends.exists? || BackendPolicy.new(current_user).can_register? %>
+              <%= nav_item 'Servers', servers_path, icon: 'bi-hdd-network',
+                           active: request.path.start_with?(servers_path) %>
+            <% end %>
+            <% if current_user.admin? %>
+              <%= nav_item 'Log', admin_activity_logs_path, icon: 'bi-journal-text',
+                           active: request.path.start_with?(admin_activity_logs_path) %>
+            <% end %>
             <%= nav_item 'Settings', settings_path, icon: 'bi-gear',
                          active: current_page?(settings_path) || request.path.start_with?('/admin') %>
           </ul>

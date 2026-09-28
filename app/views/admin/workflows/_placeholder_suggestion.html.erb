@@ -5,58 +5,131 @@
     <div class="alert alert-success py-2 text-13 mb-3"><%= notice %></div>
   <% end %>
 
-  <% if debug.present? %>
-    <div class="sidebar-card mb-3 text-13">
-      <div class="h-section-label">LiteLLM request</div>
-      <dl class="detail-list text-12 mb-2">
-        <dt>Model</dt><dd class="text-secondary"><code><%= debug.model %></code></dd>
-        <dt>Endpoint</dt><dd class="text-secondary"><code><%= debug.endpoint %></code></dd>
-      </dl>
-      <details class="text-12 mb-2">
-        <summary class="text-secondary">System prompt</summary>
-        <pre class="font-monospace text-12 mt-2 mb-0 p-2 border rounded"><%= debug.system_prompt %></pre>
-      </details>
-      <details class="text-12 mb-2">
-        <summary class="text-secondary">User message</summary>
-        <pre class="font-monospace text-12 mt-2 mb-0 p-2 border rounded"><%= debug.user_message %></pre>
-      </details>
-      <details class="text-12 mb-0" <%= 'open' unless suggestion.present? %>>
-        <summary class="text-secondary">Raw reply</summary>
-        <% if debug.raw_reply.present? %>
-          <pre class="font-monospace text-12 mt-2 mb-0 p-2 border rounded"><%= debug.raw_reply %></pre>
-        <% else %>
-          <p class="text-secondary mt-2 mb-0">No reply body was returned.</p>
-        <% end %>
-      </details>
-    </div>
-  <% end %>
-
   <% if suggestion.present? %>
-    <div class="status-panel <%= suggestion.changes.any? { !it.placeholder_substitution? } ? 'status-attention' : 'status-clear' %> mb-3 text-13">
-      <div class="fw-medium mb-1">Suggested changes</div>
-      <% if suggestion.notes.present? %>
-        <p class="text-secondary mb-2"><%= suggestion.notes %></p>
+    <% llm = suggestion.llm %>
+    <% unclassified = suggestion.unclassified %>
+    <div class="status-panel <%= unclassified.any? ? 'status-attention' : 'status-clear' %> mb-3 text-13"
+         data-controller="placeholder-review">
+      <div class="d-flex align-items-baseline justify-content-between gap-2 mb-2">
+        <div class="fw-medium">Proposed placeholders</div>
+        <div class="text-12 text-secondary">
+          <span class="text-body"><%= suggestion.substitutions.size %></span> proposed ·
+          <%= suggestion.rule_count %> by rules · <%= suggestion.llm_count %> by the LLM
+        </div>
+      </div>
+
+      <% if unclassified.any? %>
+        <div class="mb-2">
+          <div class="text-warning">
+            <%= pluralize(unclassified.size, 'input') %> weren't classified
+            <%= llm.status == :failed ? "because the LLM failed (#{llm.failure})" : 'because no LLM is configured' %>.
+            Add any that users should control with the picker below.
+          </div>
+          <ul class="list-compact text-12 mb-0">
+            <% unclassified.each do |candidate| %>
+              <li>
+                <span class="text-body"><%= candidate.node %></span>
+                <span class="text-secondary">· <%= candidate.label %> ·</span>
+                <code><%= candidate.input %></code>
+                <span class="text-secondary">= <%= placeholder_review_value(candidate.value) %></span>
+              </li>
+            <% end %>
+          </ul>
+        </div>
       <% end %>
-      <% if suggestion.changes.empty? %>
-        <p class="text-secondary mb-0">The model didn't change any values. Review the JSON below and edit by hand if needed.</p>
-      <% else %>
-        <ul class="list-compact mb-0">
-          <% suggestion.changes.each do |change| %>
-            <li class="<%= change.placeholder_substitution? ? 'text-secondary' : 'text-warning' %>">
-              <span class="text-body"><%= change.node_id %></span>
-              <%= change.node_label %>
-              · <code><%= change.input %></code>:
-              <span class="text-secondary"><%= truncate(change.from.to_s, length: 60) %></span>
-              →
-              <code><%= change.to %></code>
-              <% unless change.placeholder_substitution? %>
-                <span class="text-warning">(not a placeholder substitution)</span>
-              <% end %>
-            </li>
+
+      <table class="table table-compact align-middle mb-2">
+        <thead>
+          <tr>
+            <th scope="col"><span class="visually-hidden">Apply</span></th>
+            <th scope="col">Node</th>
+            <th scope="col">Input</th>
+            <th scope="col">Current value</th>
+            <th scope="col">Placeholder</th>
+            <th scope="col">Source</th>
+          </tr>
+        </thead>
+        <tbody data-placeholder-review-target="rows">
+          <% suggestion.substitutions.each_with_index do |substitution, index| %>
+            <%= render 'placeholder_review_row', index:, node: substitution.node, input: substitution.input,
+                                                 placeholder: substitution.placeholder, source: substitution.source,
+                                                 label: suggestion.node_label(substitution.node),
+                                                 value: placeholder_review_value(substitution.old_value) %>
           <% end %>
-        </ul>
+        </tbody>
+      </table>
+      <% if suggestion.substitutions.empty? %>
+        <p class="text-secondary mb-2" data-placeholder-review-target="empty">Nothing to propose.</p>
       <% end %>
-      <p class="text-12 text-secondary mt-2 mb-0">Review the JSON below, then choose Save when it looks right.</p>
+
+      <% if suggestion.manual_targets.any? %>
+        <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+          <span class="text-12 text-secondary">Add by hand</span>
+          <select class="form-select form-select-sm w-auto mw-100" aria-label="Node and input"
+                  data-placeholder-review-target="target">
+            <% suggestion.manual_targets.group_by(&:node).each do |node_id, candidates| %>
+              <optgroup label="<%= "#{node_id} · #{candidates.first.label}" %>">
+                <% candidates.each do |candidate| %>
+                  <option value="<%= candidate.key.to_json %>" data-label="<%= candidate.label %>"
+                          data-value="<%= placeholder_review_value(candidate.value) %>">
+                    <%= candidate.input %> = <%= placeholder_review_value(candidate.value, length: 40) %>
+                  </option>
+                <% end %>
+              </optgroup>
+            <% end %>
+          </select>
+          <select class="form-select form-select-sm w-auto" aria-label="Placeholder"
+                  data-placeholder-review-target="placeholder">
+            <% Workflow::PLACEHOLDERS.each_key do |name| %>
+              <option value="<%= name %>">{{<%= name %>}}</option>
+            <% end %>
+          </select>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-action="placeholder-review#add">Add</button>
+        </div>
+        <template data-placeholder-review-target="template">
+          <%= render 'placeholder_review_row', index: '__INDEX__', node: '', input: '', placeholder: '',
+                                               source: 'manual', label: '', value: '' %>
+        </template>
+      <% end %>
+
+      <details class="text-12">
+        <summary class="text-secondary">Details</summary>
+        <div class="mt-2">
+          <% if llm.notes.present? %>
+            <div class="h-section-label">LLM notes</div>
+            <p class="mb-2"><%= llm.notes %></p>
+          <% end %>
+          <% if suggestion.dropped.any? %>
+            <div class="h-section-label">Dropped suggestions</div>
+            <ul class="list-compact mb-2">
+              <% suggestion.dropped.each do |error| %>
+                <li class="text-secondary"><%= error %></li>
+              <% end %>
+            </ul>
+          <% end %>
+          <% if llm.debug.present? %>
+            <div class="h-section-label">LiteLLM request</div>
+            <dl class="detail-list mb-2">
+              <dt>Model</dt><dd class="text-secondary"><code><%= llm.debug.model %></code></dd>
+              <dt>Endpoint</dt><dd class="text-secondary"><code><%= llm.debug.endpoint %></code></dd>
+            </dl>
+            <details class="mb-2">
+              <summary class="text-secondary">System prompt</summary>
+              <pre class="font-monospace text-12 mt-2 mb-0 p-2 border rounded"><%= llm.debug.system_prompt %></pre>
+            </details>
+            <% llm.debug.transcript.each do |message| %>
+              <details class="mb-2">
+                <summary class="text-secondary"><%= message[:role] == 'user' ? 'Sent' : 'Reply' %></summary>
+                <pre class="font-monospace text-12 mt-2 mb-0 p-2 border rounded"><%= message[:content] %></pre>
+              </details>
+            <% end %>
+          <% else %>
+            <p class="text-secondary mb-0"><%= placeholder_llm_summary(llm) %></p>
+          <% end %>
+        </div>
+      </details>
+
+      <p class="text-12 text-secondary mt-2 mb-0">Ticked rows are applied to the JSON when you choose Save.</p>
     </div>
   <% end %>
 </div>

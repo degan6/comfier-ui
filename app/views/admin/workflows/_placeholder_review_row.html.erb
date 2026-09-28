@@ -1,0 +1,18 @@
+<% field = "placeholder_substitutions[#{index}]" %>
+<tr data-key="<%= [node, input].to_json %>">
+  <td>
+    <%= check_box_tag "#{field}[apply]", '1', true, id: nil, class: 'form-check-input', aria: { label: 'Apply' } %>
+    <%= hidden_field_tag "#{field}[node]", node, id: nil, data: { field: 'node' } %>
+    <%= hidden_field_tag "#{field}[input]", input, id: nil, data: { field: 'input' } %>
+    <%= hidden_field_tag "#{field}[placeholder]", placeholder, id: nil, data: { field: 'placeholder' } %>
+    <%= hidden_field_tag "#{field}[source]", source, id: nil %>
+  </td>
+  <td class="text-nowrap">
+    <span class="text-body" data-text="node"><%= node %></span>
+    <span class="text-secondary">· <span data-text="label"><%= label %></span></span>
+  </td>
+  <td><code data-text="input"><%= input %></code></td>
+  <td class="text-secondary text-break" data-text="value"><%= value %></td>
+  <td><code data-text="token"><%= "{{#{placeholder}}}" if placeholder.present? %></code></td>
+  <td class="text-secondary"><%= placeholder_source_label(source) %></td>
+</tr>

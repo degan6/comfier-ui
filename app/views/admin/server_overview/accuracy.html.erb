@@ -1,0 +1,30 @@
+<% content_for :title, 'Prediction accuracy' %>
+
+<div class="small text-secondary mb-2"><%= link_to 'Server overview', admin_server_overview_path, class: 'link-secondary' %></div>
+<div class="mb-3">
+  <h1 class="h-page-title mb-0">Prediction accuracy</h1>
+  <div class="text-13 text-secondary mt-1">Median gap between predicted and actual time for finished jobs. Lower is better.</div>
+</div>
+
+<% [['By server', @by_backend, ->(key) { @backends[key]&.name || "Server #{key}" }],
+    ['By style', @by_type, ->(key) { @type_names[key] || key.to_s.first(8) }]].each do |title, data, name| %>
+  <div class="h-section-label mt-3"><%= title %></div>
+  <% if data[30].empty? %>
+    <p class="text-13 text-secondary">No finished jobs with predictions yet.</p>
+  <% else %>
+    <table class="table table-compact align-middle">
+      <thead><tr><th>Name</th><th class="num">7 days</th><th class="num">30 days</th><th class="num">Jobs (30d)</th></tr></thead>
+      <tbody>
+        <% data[30].sort_by { -it.last[:median] }.each do |key, month| %>
+          <% week = data[7][key] %>
+          <tr>
+            <td><%= name.call(key) %></td>
+            <td class="num <%= 'text-secondary' unless week %>"><%= week ? "#{week[:median]}%" : '—' %></td>
+            <td class="num <%= 'fw-medium' if month[:median] > 50 %>"><%= month[:median] %>%</td>
+            <td class="num text-secondary"><%= month[:n] %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+<% end %>

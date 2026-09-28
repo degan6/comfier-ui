@@ -11,12 +11,17 @@ end
 
 require 'rails/test_help'
 require 'webmock/minitest'
+require_relative 'support/agent_test_helpers'
+
+Rails.application.routes.default_url_options[:host] = 'www.example.com'
 
 OmniAuth.config.test_mode = true
 OmniAuth.config.logger = Logger.new(IO::NULL)
 
 module ActiveSupport
   class TestCase
+    include AgentTestHelpers
+
     parallelize(workers: :number_of_processors)
 
     fixtures :all

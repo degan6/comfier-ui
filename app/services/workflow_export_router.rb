@@ -49,7 +49,7 @@ class WorkflowExportRouter
     if graph_data && WorkflowModels.api_format?(graph_data)
       JSON.pretty_generate(graph_data)
     elsif graph_file.respond_to?(:read) && !ui_only_graph_upload?(graph_file, models_file, graph_data, models_data)
-      graph_file.read
+      WorkflowGraphJson.utf8_string(graph_file.read)
     end
   end
 
@@ -60,7 +60,7 @@ class WorkflowExportRouter
   def import_invalid_models_file(models_file, models_data, models_content)
     return if models_content.present? || !models_file.respond_to?(:read) || models_data.nil?
 
-    @workflow.import_models(models_file.read)
+    @workflow.import_models(WorkflowGraphJson.utf8_string(models_file.read))
   end
 
   def ui_only_graph_upload?(graph_file, models_file, graph_data, models_data)
@@ -73,7 +73,7 @@ class WorkflowExportRouter
   def read_json_file(file)
     return unless file.respond_to?(:read)
 
-    JSON.parse(file.read)
+    JSON.parse(WorkflowGraphJson.utf8_string(file.read))
   rescue JSON::ParserError
     nil
   ensure

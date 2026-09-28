@@ -40,6 +40,43 @@ module LiteLlm
       end
     end
 
+    test 'chat records an activity log entry on success' do
+      with_env('LITELLM_URL' => 'http://litellm.test/', 'LITELLM_MODEL' => 'gpt-test') do
+        stub_request(:post, 'http://litellm.test/v1/chat/completions')
+          .to_return(body: { choices: [{ message: { content: '{"ok":true}' } }] }.to_json)
+
+        Client.chat(system: 'system rules', user: 'user payload')
+        log = ActivityLog.order(:id).last
+
+        assert_equal 'llm_chat', log.kind
+        assert log.details['success']
+        assert_equal 'system rules', log.details.dig('request', 'messages', 0, 'content')
+        assert_equal '{"ok":true}', log.details['assistant_content']
+      end
+    end
+
+    test 'chat can send earlier turns, a temperature and a JSON schema' do
+      with_env('LITELLM_URL' => 'http://litellm.test', 'LITELLM_MODEL' => 'gpt-test') do
+        schema = { type: 'object', properties: {}, additionalProperties: false }
+        stub_request(:post, 'http://litellm.test/v1/chat/completions')
+          .with do |request|
+            body = JSON.parse(request.body)
+
+            assert_equal 0, body['temperature']
+            assert_equal %w[system user assistant user], body['messages'].pluck('role')
+            assert_equal({ 'type' => 'json_schema',
+                           'json_schema' => { 'name' => 'reply', 'strict' => true, 'schema' => schema.as_json } },
+                         body['response_format'])
+          end
+          .to_return(body: { choices: [{ message: { content: '{}' } }] }.to_json)
+
+        history = [{ role: 'user', content: 'first' }, { role: 'assistant', content: '{"bad":1}' }]
+
+        assert_equal '{}', Client.chat(system: 's', user: 'fix it', history:, temperature: 0,
+                                       json_schema: { name: 'reply', schema: })
+      end
+    end
+
     test 'raises on HTTP errors' do
       with_env('LITELLM_URL' => 'http://litellm.test', 'LITELLM_MODEL' => 'gpt-test') do
         stub_request(:post, 'http://litellm.test/v1/chat/completions').to_return(status: 500, body: 'nope')

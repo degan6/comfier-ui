@@ -1,0 +1,85 @@
+<% content_for :title, 'Servers' %>
+<%= turbo_stream_from :servers %>
+
+<% online = @backends.count { Agent::Presence.online?(it) } %>
+<% attention = @backends.count { %w[error disk_low].include?(Agent::Presence.availability(it)) } %>
+
+<div class="d-flex align-items-end justify-content-between mb-3">
+  <div>
+    <h1 class="h-page-title mb-0">Servers</h1>
+    <div class="text-13 text-secondary mt-1">
+      <span class="text-body num"><%= @backends.size %></span> total ·
+      <span class="text-success num"><%= online %></span> online
+      <% if attention.positive? %> · <span class="text-warning num"><%= attention %></span> need attention<% end %>
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <% if current_user.admin? %>
+      <%= link_to 'Overview', admin_server_overview_path, class: 'btn btn-outline-secondary btn-sm' %>
+    <% end %>
+    <% if @policy.can_register? %>
+      <%= link_to '+ Add a server', new_server_path, class: 'btn btn-primary btn-sm' %>
+    <% end %>
+  </div>
+</div>
+
+<% if @backends.empty? %>
+  <div class="status-panel status-clear">
+    <p class="fw-medium mb-1">No servers yet</p>
+    <p class="text-13 text-secondary mb-0">
+      <% if @policy.can_register? %>
+        Add your own ComfyUI machine and your jobs can run on it.
+      <% else %>
+        Jobs run on the shared servers an admin has set up.
+      <% end %>
+    </p>
+  </div>
+<% else %>
+  <div class="table-responsive">
+    <table class="table table-compact table-hover align-middle">
+      <thead>
+        <tr>
+          <th class="w-status"></th>
+          <th>Name</th>
+          <th>Owner</th>
+          <th>GPU</th>
+          <th class="num">Queue</th>
+          <th class="num">Typical wait</th>
+          <th class="num">Speed</th>
+          <th>Styles it can run</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @backends.each do |backend| %>
+          <% records = @availability[backend.id].to_a %>
+          <% ready = records.count(&:ready?) %>
+          <% queue = backend.generations.agent_waiting.count %>
+          <tr class="row-link" data-controller="row-link" data-row-link-href-value="<%= server_path(backend) %>">
+            <%= render 'servers/status_cell', backend: %>
+            <td>
+              <%= link_to backend.name, server_path(backend), class: 'text-body fw-medium' %>
+              <% if backend.description.present? %>
+                <div class="text-12 text-secondary text-truncate" style="max-width: 20rem"><%= backend.description %></div>
+              <% end %>
+            </td>
+            <td class="text-12 <%= 'text-secondary' unless backend.owned_by?(current_user) %>">
+              <%= backend.owned_by?(current_user) ? 'You' : backend.owner_user&.display_name || '—' %>
+            </td>
+            <td class="text-12"><%= gpu_line(backend) %></td>
+            <td class="num <%= 'text-secondary' if queue.zero? %>"><%= queue %></td>
+            <td class="num text-12"><%= typical_wait(backend) %></td>
+            <td class="num text-12"><%= speed_label(backend) %></td>
+            <td class="text-12">
+              <% if records.empty? %>
+                <span class="text-secondary">—</span>
+              <% else %>
+                <span class="num <%= 'text-secondary' if ready.zero? %>"><%= ready %></span>
+                <span class="text-secondary">of <%= @workflows.size %></span>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

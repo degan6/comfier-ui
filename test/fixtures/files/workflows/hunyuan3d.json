@@ -1,0 +1,12 @@
+{
+  "1": {"_meta": {"title": "Load Checkpoint Image Only (img2vid model)"}, "inputs": {"ckpt_name": "hunyuan_3d_v2.1.safetensors"}, "class_type": "ImageOnlyCheckpointLoader"},
+  "2": {"_meta": {"title": "Load Image"}, "inputs": {"image": "{{image}}"}, "class_type": "LoadImage"},
+  "3": {"_meta": {"title": "ModelSamplingAuraFlow"}, "inputs": {"model": ["1", 0], "shift": 1, "sampling": "flow"}, "class_type": "ModelSamplingAuraFlow"},
+  "4": {"_meta": {"title": "Empty Hunyuan 3D v2 Latent"}, "inputs": {"batch_size": 1, "resolution": 4096}, "class_type": "EmptyLatentHunyuan3Dv2"},
+  "6": {"_meta": {"title": "Hunyuan3Dv2Conditioning"}, "inputs": {"clip_vision_output": ["13", 0]}, "class_type": "Hunyuan3Dv2Conditioning"},
+  "7": {"_meta": {"title": "KSampler"}, "inputs": {"cfg": 5, "seed": 952805179515179, "model": ["3", 0], "steps": 30, "denoise": 1, "negative": ["6", 1], "positive": ["6", 0], "scheduler": "normal", "latent_image": ["4", 0], "sampler_name": "euler"}, "class_type": "KSampler"},
+  "8": {"_meta": {"title": "Hunyuan 3D VAE Decode"}, "inputs": {"vae": ["1", 2], "samples": ["7", 0], "num_chunks": 8000, "octree_resolution": 256}, "class_type": "VAEDecodeHunyuan3D"},
+  "9": {"_meta": {"title": "Voxel to Mesh"}, "inputs": {"voxel": ["8", 0], "algorithm": "surface net", "threshold": 0.6}, "class_type": "VoxelToMesh"},
+  "10": {"_meta": {"title": "Save 3D Model"}, "inputs": {"mesh": ["9", 0], "image": "", "filename_prefix": "mesh/ComfyUI"}, "class_type": "SaveGLB"},
+  "13": {"_meta": {"title": "CLIP Vision Encode"}, "inputs": {"crop": "center", "image": ["2", 0], "clip_vision": ["1", 1]}, "class_type": "CLIPVisionEncode"}
+}

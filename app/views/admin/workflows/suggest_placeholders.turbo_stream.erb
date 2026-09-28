@@ -1,5 +1,5 @@
 <%= turbo_stream.replace 'workflow_placeholder_panel' do %>
-  <%= render 'placeholder_suggestion', suggestion: @placeholder_suggestion, debug: @placeholder_debug,
+  <%= render 'placeholder_suggestion', suggestion: @placeholder_suggestion,
                                        alert: flash.now[:alert], notice: flash.now[:notice] %>
 <% end %>
 

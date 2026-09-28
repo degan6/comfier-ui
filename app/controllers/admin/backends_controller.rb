@@ -1,9 +1,9 @@
 module Admin
   class BackendsController < BaseController
-    before_action :set_backend, only: %i[edit update destroy check]
+    before_action :set_backend, only: %i[edit update destroy check convert]
 
     def index
-      @backends = Backend.ordered
+      @backends = Backend.kept.ordered
     end
 
     def new
@@ -31,13 +31,29 @@ module Admin
     end
 
     def destroy
-      @backend.destroy!
+      if @backend.agent?
+        Agent::ServerRemoval.call(@backend)
+      else
+        @backend.destroy!
+      end
       redirect_to admin_backends_path, notice: "Removed #{@backend.name}.", status: :see_other
     end
 
     def check
       @backend.check!
       redirect_to admin_backends_path, notice: connection_notice, status: :see_other
+    end
+
+    # Turns a legacy backend into an agent server in place, keeping its history, and shows its key once.
+    def convert
+      return redirect_to(server_path(@backend), status: :see_other) if @backend.agent?
+
+      @backend.update!(connection_kind: 'agent', owner_user: @backend.owner_user || current_user,
+                       visibility: 'public')
+      @new_key = @backend.issue_agent_key!
+      ActivityLog.record(kind: :server_converted, user: current_user, subject: @backend, request:,
+                         message: "Switched #{@backend.name} to the Comfier Agent")
+      render 'servers/setup', layout: 'application', status: :created
     end
 
     private

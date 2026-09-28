@@ -1,4 +1,4 @@
-# Picks which ComfyUI backend a user's generation goes to: their preferred backend when it's
+# Picks which legacy ComfyUI backend a user's generation goes to: their preferred backend when it's
 # enabled, otherwise the reachable enabled backend with the shortest queue. Backends known to be
 # missing a model the workflow needs are skipped.
 class BackendSelector
@@ -13,11 +13,11 @@ class BackendSelector
     @workflow = workflow
   end
 
-  def call
-    enabled = Backend.enabled.ordered.to_a
+  def call # rubocop:disable Metrics/CyclomaticComplexity
+    enabled = Backend.legacy.enabled.ordered.to_a
     raise NoBackendAvailable if enabled.empty?
 
-    candidates = @workflow ? enabled.reject { it.missing_models(@workflow).any? } : enabled
+    candidates = @workflow ? enabled.reject { |b| legacy_missing_models?(b) } : enabled
     raise NoBackendAvailable, missing_models_message if candidates.empty?
 
     preferred = @user.preferred_backend
@@ -39,5 +39,9 @@ class BackendSelector
     rescue Comfyui::Error
       nil
     end.min_by(&:last)&.first
+  end
+
+  def legacy_missing_models?(backend)
+    @workflow && backend.missing_models(@workflow).any?
   end
 end

@@ -159,6 +159,20 @@
     </p>
   <% end %>
 
+  <% servers = BackendPolicy.new(current_user).usable_agent_backends.includes(:owner_user).ordered.to_a %>
+  <% if servers.any? %>
+    <div class="mb-3" data-controller="estimate" data-estimate-url-value="<%= estimate_path %>">
+      <% if servers.many? %>
+        <%= f.label :pinned_backend_id, 'Run on', class: 'form-label text-13' %>
+        <%= f.select :pinned_backend_id, servers.map { [it.owned_by?(current_user) ? "#{it.name} (yours)" : it.name, it.id] },
+                     { include_blank: 'Auto (fastest)' },
+                     class: 'form-select form-select-sm', data: { action: 'estimate#refresh' } %>
+      <% end %>
+      <p class="text-12 text-secondary mt-1 mb-0" data-estimate-target="summary" aria-live="polite"></p>
+      <p class="text-12 text-warning mt-1 mb-0 d-none" data-estimate-target="notice"></p>
+    </div>
+  <% end %>
+
   <%= render 'generations/share_controls', generation: generation, workflow: workflow, form_mode: true %>
 
   <%= f.button type: 'submit', class: 'btn btn-primary w-100' do %>

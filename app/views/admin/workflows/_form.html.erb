@@ -1,8 +1,5 @@
 <div class="row g-4">
   <div class="col-xl-8">
-    <%= render 'placeholder_suggestion', suggestion: local_assigns[:placeholder_suggestion],
-                                         debug: local_assigns[:placeholder_debug] %>
-
     <%= form_with model: [:admin, workflow], class: 'settings-form-wide', multipart: true,
                   data: { turbo: true } do |f| %>
       <% if workflow.errors.any? %>
@@ -49,6 +46,7 @@
       </div>
 
       <%= render 'graph_json_section', workflow:, form: f %>
+      <%= render 'placeholder_suggestion', suggestion: local_assigns[:placeholder_suggestion] %>
 
       <div class="row g-3 mb-3">
         <div class="col-sm-3">

@@ -1,4 +1,6 @@
 module GenerationsHelper
+  include AgentProgressHelper
+
   STATUS_BADGES = {
     'queued' => %w[secondary Queued],
     'running' => %w[primary Generating…],
@@ -40,6 +42,18 @@ module GenerationsHelper
 
     tag.span(class: 'result-shared', title: 'Shared') do
       tag.i(class: 'bi bi-share-fill', aria: { hidden: true })
+    end
+  end
+
+  def public_output_preview(generation, attachment, index, controls: false)
+    url = public_share_output_path(generation.public_token, index)
+    case attachment.content_type
+    when %r{\Aimage/} then image_tag(url, alt: '', class: 'output-media', loading: 'lazy')
+    when %r{\Avideo/}
+      video_tag(url, class: 'output-media', controls:, muted: !controls, loop: true, playsinline: true,
+                     preload: 'metadata')
+    when %r{\Aaudio/} then audio_tag(url, controls: true, class: 'w-100', preload: 'metadata')
+    else file_output(attachment)
     end
   end
 

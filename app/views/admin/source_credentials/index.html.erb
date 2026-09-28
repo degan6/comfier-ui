@@ -1,0 +1,12 @@
+<% content_for :title, 'Global download tokens' %>
+
+<div class="mb-3">
+  <h1 class="h-page-title mb-0">Global download tokens</h1>
+  <div class="text-13 text-secondary mt-1">
+    Used for model downloads on any server whose owner hasn't saved a token for the same site.
+  </div>
+</div>
+
+<%= render 'source_credentials/list', credentials: @credentials, credential: @credential,
+                                      create_path: admin_source_credentials_path,
+                                      delete_path: ->(c) { admin_source_credential_path(c) } %>
