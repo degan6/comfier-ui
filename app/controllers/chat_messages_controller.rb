@@ -67,7 +67,7 @@ class ChatMessagesController < ApplicationController
       turbo_stream.replace(
         'chat_composer',
         partial: 'chat_conversations/composer',
-        locals: { conversation: @conversation, pending: true }
+        locals: { conversation: @conversation, pending: true, chat_models: @chat_models }
       )
     ]
   end

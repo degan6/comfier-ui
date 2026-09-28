@@ -29,9 +29,8 @@
       <% end %>
     </div>
 
-    <div id="chat_composer">
-      <%= render 'chat_conversations/composer', conversation: @conversation,
-                 pending: @conversation.reply_pending? %>
-    </div>
+    <%= render 'chat_conversations/composer', conversation: @conversation,
+               pending: @conversation.reply_pending?,
+               chat_models: @chat_models %>
   </div>
 <% end %>

@@ -1,6 +1,8 @@
 <% pending = local_assigns.fetch(:pending, false) %>
 <% selected_model = conversation.effective_model %>
+<% chat_models = local_assigns[:chat_models] %>
 
+<div id="chat_composer">
 <%= form_with url: chat_messages_path(conversation),
               scope: :chat_message,
               html: {
@@ -26,7 +28,7 @@
                                data: { chat_target: 'file', action: 'change->chat#previewImage' } %>
     </label>
 
-    <%= f.select :model, chat_model_options(selected_model, models: @chat_models), {},
+    <%= f.select :model, chat_model_options(selected_model, models: chat_models || @chat_models), {},
                  class: 'form-select form-select-sm chat-model-select' %>
 
     <%= f.submit 'Send', class: 'btn btn-primary btn-sm ms-auto',
@@ -34,3 +36,4 @@
                          disabled: pending %>
   </div>
 <% end %>
+</div>

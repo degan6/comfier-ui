@@ -34,11 +34,16 @@ class ChatMessage < ApplicationRecord
   end
 
   def broadcast_composer_refresh
+    conversation = chat_conversation
     Turbo::StreamsChannel.broadcast_replace_later_to(
-      [chat_conversation, :messages],
+      [conversation, :messages],
       target: 'chat_composer',
       partial: 'chat_conversations/composer',
-      locals: { conversation: chat_conversation, pending: chat_conversation.reply_pending? }
+      locals: {
+        conversation:,
+        pending: conversation.reply_pending?,
+        chat_models: LiteLlm::Client.fallback_model_ids
+      }
     )
   end
 
