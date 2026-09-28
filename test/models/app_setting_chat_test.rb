@@ -7,6 +7,10 @@ class AppSettingChatTest < ActiveSupport::TestCase
 
     assert_not settings.valid?
     assert_includes settings.errors[:chat_notice_url], 'is invalid'
+
+    settings.chat_notice_url = 'https://example.com extra'
+
+    assert_not settings.valid?
   end
 
   test 'chat_notice? is true when text is present' do

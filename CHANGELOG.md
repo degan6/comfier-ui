@@ -5,6 +5,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [v0.9.0] - 2026-09-28
+
+### Changed
+- GitHub Actions workflows run on `ubuntu-26.04` instead of the migrating `ubuntu-latest` image.
+
+### Fixed
+- Chat notice link URLs are validated as full `http`/`https` URLs (Brakeman `ValidationRegex`).
+
 ## [v0.8.0] - 2026-09-28
 
 ### Added

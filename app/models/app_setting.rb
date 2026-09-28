@@ -7,7 +7,8 @@ class AppSetting < ApplicationRecord
             numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 100 })
   validates :report_auto_hide_threshold,
             numericality: { only_integer: true, greater_than_or_equal_to: 0, less_than_or_equal_to: 100 }
-  validates :chat_notice_url, format: { with: %r{\Ahttps?://}i, allow_blank: true }
+  CHAT_NOTICE_URL_FORMAT = %r{\Ahttps?://\S+\z}i
+  validates :chat_notice_url, format: { with: CHAT_NOTICE_URL_FORMAT, allow_blank: true }
   validates :chat_default_model, length: { maximum: 255 }, allow_blank: true
 
   def chat_notice?
