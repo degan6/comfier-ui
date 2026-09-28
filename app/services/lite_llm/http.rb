@@ -5,7 +5,17 @@ module LiteLlm
       http(uri).request(build_post(uri, payload))
     end
 
+    def get_json(uri)
+      http(uri).request(build_get(uri))
+    end
+
     private
+
+    def build_get(uri)
+      request = Net::HTTP::Get.new(uri)
+      request['Authorization'] = "Bearer #{Client.api_key}" if Client.api_key.present?
+      request
+    end
 
     def build_post(uri, payload)
       request = Net::HTTP::Post.new(uri)

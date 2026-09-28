@@ -1,0 +1,37 @@
+<%= turbo_stream_from @conversation, :messages %>
+
+<%= render layout: 'chat_conversations/layout' do %>
+  <div class="chat-panel d-flex flex-column" data-controller="chat">
+    <div class="d-flex align-items-start justify-content-between mb-2 gap-2">
+      <div class="min-w-0">
+        <h2 class="h6 mb-0 text-truncate"><%= @conversation.title_or_default %></h2>
+        <div class="text-12 text-secondary">Model <%= @conversation.effective_model %></div>
+      </div>
+      <div class="dropdown">
+        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-label="Conversation actions">
+          <i class="bi bi-three-dots" aria-hidden="true"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end text-13">
+          <li>
+            <%= button_to 'Delete conversation', chat_path(@conversation), method: :delete,
+                          class: 'dropdown-item text-danger',
+                          form: { data: { turbo_confirm: 'Delete this conversation?' } } %>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <%= render 'chat_conversations/notice' %>
+
+    <div id="chat_thread" class="chat-thread flex-grow-1" data-chat-target="thread">
+      <% @conversation.chat_messages.each do |message| %>
+        <%= render 'chat_messages/message', message: message %>
+      <% end %>
+    </div>
+
+    <div id="chat_composer">
+      <%= render 'chat_conversations/composer', conversation: @conversation,
+                 pending: @conversation.reply_pending? %>
+    </div>
+  </div>
+<% end %>

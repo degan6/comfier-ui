@@ -1,0 +1,8 @@
+<%= turbo_stream.append 'chat_thread' do %>
+  <%= render 'chat_messages/message', message: @user_message %>
+  <%= render 'chat_messages/message', message: @assistant_message %>
+<% end %>
+
+<%= turbo_stream.replace 'chat_composer' do %>
+  <%= render 'chat_conversations/composer', conversation: @conversation, pending: true %>
+<% end %>

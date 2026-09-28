@@ -1,0 +1,36 @@
+<% pending = local_assigns.fetch(:pending, false) %>
+<% selected_model = conversation.effective_model %>
+
+<%= form_with url: chat_messages_path(conversation),
+              scope: :chat_message,
+              html: {
+                class: 'chat-composer mt-2',
+                data: {
+                  chat_target: 'form',
+                  action: 'submit->chat#submit'
+                }
+              } do |f| %>
+  <div class="chat-image-preview d-none mb-2" data-chat-target="preview">
+    <img alt="" class="chat-image-preview-thumb" data-chat-target="previewImage">
+    <button type="button" class="btn btn-outline-secondary btn-sm" data-action="chat#clearImage">Remove</button>
+  </div>
+
+  <%= f.text_area :content, rows: 3, class: 'form-control form-control-sm text-13',
+                            placeholder: 'Message…',
+                            data: { chat_target: 'input', action: 'keydown->chat#keydown' } %>
+
+  <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
+    <label class="btn btn-outline-secondary btn-sm mb-0">
+      <i class="bi bi-image me-1" aria-hidden="true"></i>Image
+      <%= f.file_field :image, accept: 'image/png,image/jpeg,image/webp,image/gif', class: 'd-none',
+                               data: { chat_target: 'file', action: 'change->chat#previewImage' } %>
+    </label>
+
+    <%= f.select :model, chat_model_options(selected_model, models: @chat_models), {},
+                 class: 'form-select form-select-sm chat-model-select' %>
+
+    <%= f.submit 'Send', class: 'btn btn-primary btn-sm ms-auto',
+                         data: { chat_target: 'submit' },
+                         disabled: pending %>
+  </div>
+<% end %>
