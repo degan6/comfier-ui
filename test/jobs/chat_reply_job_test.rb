@@ -8,10 +8,14 @@ class ChatReplyJobTest < ActiveJob::TestCase
     }
     ENV['LITELLM_URL'] = 'http://litellm.test'
     ENV['LITELLM_MODEL'] = 'gpt-test'
+    Rails.cache.delete(LiteLlm::ModelsCatalog::CACHE_KEY)
+    stub_request(:get, 'http://litellm.test/v1/models')
+      .to_return(body: { data: [{ id: 'gpt-test' }] }.to_json)
   end
 
   teardown do
     @previous.each { |key, value| ENV[key] = value }
+    Rails.cache.delete(LiteLlm::ModelsCatalog::CACHE_KEY)
   end
 
   test 'fills in a pending assistant message' do
