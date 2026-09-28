@@ -39,11 +39,7 @@ class ChatMessage < ApplicationRecord
       [conversation, :messages],
       target: 'chat_composer',
       partial: 'chat_conversations/composer',
-      locals: {
-        conversation:,
-        pending: conversation.reply_pending?,
-        chat_models: LiteLlm::Client.fallback_model_ids
-      }
+      locals: conversation.composer_locals
     )
   end
 

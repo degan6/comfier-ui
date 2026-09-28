@@ -5,15 +5,29 @@ export default class extends Controller {
 
   connect() {
     this.scrollToBottom()
-    this.element.addEventListener("turbo:before-stream-render", this.onStreamRender)
+    document.addEventListener("turbo:before-stream-render", this.onStreamRender)
   }
 
   disconnect() {
-    this.element.removeEventListener("turbo:before-stream-render", this.onStreamRender)
+    document.removeEventListener("turbo:before-stream-render", this.onStreamRender)
   }
 
-  onStreamRender = () => {
-    requestAnimationFrame(() => this.scrollToBottom())
+  onStreamRender = (event) => {
+    if (!this.shouldScrollForStream(event.target)) return
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => this.scrollToBottom())
+    })
+  }
+
+  shouldScrollForStream(streamElement) {
+    if (!this.hasThreadTarget || !streamElement?.getAttribute) return false
+
+    const target = streamElement.getAttribute("target") || ""
+    if (target === "chat_thread") return true
+    if (target.startsWith("chat_message_")) return true
+
+    return this.threadTarget.contains(document.getElementById(target))
   }
 
   keydown(event) {
