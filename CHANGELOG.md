@@ -5,6 +5,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [v0.9.2] - 2026-09-28
+
+### Fixed
+- **Chat**: Auto-scroll when new messages stream in (listen for Turbo streams on `document`).
+- **Chat**: Model picker keeps the full LiteLLM catalog after each reply instead of collapsing to the default model.
+
 ## [v0.9.1] - 2026-09-28
 
 ### Fixed

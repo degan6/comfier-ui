@@ -18,6 +18,14 @@ class ChatConversation < ApplicationRecord
     chat_messages.assistant.pending.exists?
   end
 
+  def composer_locals(pending: nil, chat_models: nil)
+    {
+      conversation: self,
+      pending: pending.nil? ? reply_pending? : pending,
+      chat_models: chat_models || LiteLlm::Client.models
+    }
+  end
+
   def set_title_from!(text)
     return if title.present?
 

@@ -4,5 +4,5 @@
 <% end %>
 
 <%= turbo_stream.replace 'chat_composer' do %>
-  <%= render 'chat_conversations/composer', conversation: @conversation, pending: true, chat_models: @chat_models %>
+  <%= render 'chat_conversations/composer', **@conversation.composer_locals(pending: true, chat_models: @chat_models) %>
 <% end %>
