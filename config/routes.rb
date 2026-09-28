@@ -30,6 +30,14 @@ Rails.application.routes.draw do
     get kind.path, to: 'studios#show', defaults: { kind: kind.key }, as: :"#{kind.key}_studio"
   end
 
+  resources :chats, controller: 'chat_conversations', only: %i[index show create update destroy] do
+    resources :messages, controller: 'chat_messages', only: :create do
+      member do
+        post :retry
+      end
+    end
+  end
+
   resources :generations, path: 'results', only: %i[index show create destroy] do
     member do
       post :retry
@@ -82,6 +90,7 @@ Rails.application.routes.draw do
       end
     end
     resource :assistant_setting, only: %i[edit update]
+    resource :chat_setting, only: %i[edit update]
 
     resources :activity_logs, only: %i[index show]
 

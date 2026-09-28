@@ -1,0 +1,10 @@
+<% content_for :title, 'Chat' %>
+
+<div class="chat-layout row g-3">
+  <div class="col-md-4 col-lg-3">
+    <%= render 'chat_conversations/sidebar' %>
+  </div>
+  <div class="col-md-8 col-lg-9">
+    <%= yield %>
+  </div>
+</div>

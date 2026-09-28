@@ -1,0 +1,24 @@
+<div class="chat-sidebar">
+  <div class="d-flex align-items-center justify-content-between mb-2">
+    <h1 class="h-page-title mb-0">Chat</h1>
+    <%= button_to chats_path, method: :post, class: 'btn btn-outline-secondary btn-sm' do %>
+      <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>New chat
+    <% end %>
+  </div>
+
+  <% if @conversations.any? %>
+    <ul class="list-compact chat-conversation-list mb-0">
+      <% @conversations.each do |conversation| %>
+        <li>
+          <%= link_to chat_path(conversation),
+                      class: ['chat-conversation-item', { active: @conversation&.id == conversation.id }] do %>
+            <span class="text-truncate d-block text-13"><%= conversation.title_or_default %></span>
+            <span class="text-12 text-secondary"><%= friendly_time(conversation.updated_at) %></span>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  <% else %>
+    <p class="text-13 text-secondary mb-0">No conversations yet.</p>
+  <% end %>
+</div>

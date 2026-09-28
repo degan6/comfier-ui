@@ -5,6 +5,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [v0.8.0] - 2026-09-28
+
+### Added
+- **Comfier Agent**: ComfyUI servers connect outbound to Comfier for job routing, sharing, model downloads, and queue
+  estimates. Members can register agent servers under **Servers** when admins allow it.
+- **Chat** tab (after 3D Model) when LiteLLM is configured: saved conversations, model picker fed from the proxy,
+  image upload for vision models, and async replies via Sidekiq.
+- **Settings → Chat** (admins): default model for new conversations and an optional notice at the top of Chat with a
+  link to a more capable chat system elsewhere.
+
 ## [v0.4.4] - 2026-09-26
 
 ### Fixed

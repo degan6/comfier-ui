@@ -1,0 +1,55 @@
+<% content_for :title, 'Chat' %>
+
+<h1 class="h-page-title mb-3">Chat</h1>
+<p class="text-13 text-secondary mb-3">
+  Members use Chat to talk to your LiteLLM proxy. They can pick any model LiteLLM lists and attach an image for vision.
+</p>
+
+<% if LiteLlm::Client.configured? %>
+  <div class="text-13 mb-3">
+    <span class="status-dot status-success" aria-hidden="true"></span>
+    LiteLLM is configured at <span class="text-body"><%= LiteLlm::Client.url %></span>.
+  </div>
+<% else %>
+  <div class="status-panel status-attention mb-3 text-13">
+    LiteLLM is not configured. Set
+    <% LiteLlm::Client.missing_config_keys.each do |key| %>
+      <code><%= key %></code><%= key == LiteLlm::Client.missing_config_keys.last ? '' : ' and ' %>
+    <% end %>
+    in <code>.env</code>.
+  </div>
+<% end %>
+
+<%= form_with model: @settings, url: admin_chat_setting_path, method: :patch, class: 'settings-form-wide' do |f| %>
+  <% if @settings.errors.any? %>
+    <div class="alert alert-danger py-2 text-13"><%= @settings.errors.full_messages.to_sentence %></div>
+  <% end %>
+
+  <div class="mb-3">
+    <%= f.label :chat_default_model, 'Default model', class: 'form-label' %>
+    <%= f.select :chat_default_model,
+                 options_for_select(@chat_models, @settings.chat_default_model.presence || LiteLlm::Client.model),
+                 { include_blank: "Use #{LiteLlm::Client.model.presence || 'LITELLM_MODEL'}" },
+                 class: 'form-select form-select-sm w-auto' %>
+    <div class="form-text text-12">New conversations start with this model when the member doesn't choose another.</div>
+  </div>
+
+  <div class="h-section-label mt-4 mb-2">Notice at top of Chat</div>
+  <p class="text-13 text-secondary mb-3">
+    Optional message shown above every chat thread — for example, pointing people to a more capable chat system elsewhere.
+  </p>
+
+  <div class="mb-3">
+    <%= f.label :chat_notice_text, 'Message', class: 'form-label' %>
+    <%= f.text_area :chat_notice_text, rows: 3, class: 'form-control form-control-sm text-13',
+                                        placeholder: 'For longer conversations, use…' %>
+  </div>
+
+  <div class="mb-3">
+    <%= f.label :chat_notice_url, 'Link URL (optional)', class: 'form-label' %>
+    <%= f.url_field :chat_notice_url, class: 'form-control form-control-sm', placeholder: 'https://…' %>
+    <div class="form-text text-12">When set, the message becomes a link.</div>
+  </div>
+
+  <%= f.submit 'Save', class: 'btn btn-primary btn-sm' %>
+<% end %>

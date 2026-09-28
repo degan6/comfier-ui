@@ -1,0 +1,11 @@
+alice_user:
+  chat_conversation: alice_chat
+  role: user
+  content: What is Comfier?
+  status: succeeded
+
+alice_assistant:
+  chat_conversation: alice_chat
+  role: assistant
+  content: Comfier queues ComfyUI workflows for you.
+  status: succeeded

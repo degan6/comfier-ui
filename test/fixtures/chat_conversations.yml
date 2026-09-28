@@ -1,0 +1,9 @@
+alice_chat:
+  user: alice
+  title: Hello there
+  model: gpt-test
+
+bob_chat:
+  user: bob
+  title: Private thread
+  model: gpt-test
