@@ -63,6 +63,7 @@ async def test_model_download_happy_path(model_paths):
         allow_insecure=True,
         allow_model_downloads=True,
         allow_pickle_formats=True,
+        min_free_disk_gb=0,
     )
     mgr = ModelDownloadManager(cfg, session, send, rescan)
     digest = hashlib.sha256(payload).hexdigest()

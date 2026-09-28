@@ -37,16 +37,23 @@ def test_machine_type_apple_silicon():
     assert machine_type_label([{"type": "mps"}]) == "apple_silicon"
 
 
-def test_disk_acceptance_blocks_when_low(tmp_path):
+def test_disk_acceptance_blocks_when_low(tmp_path, monkeypatch):
     cfg = AgentConfig(
         comfyui_output_dir=str(tmp_path),
         min_free_disk_gb=10,
+    )
+    monkeypatch.setattr(
+        "comfier_agent.resources.disk_free_by_label",
+        lambda _config: {"disk": 20 * 1024**3},
     )
     ok, reason = disk_acceptance(cfg)
     assert ok
     assert reason is None
 
-    cfg.min_free_disk_gb = 1_000_000
+    monkeypatch.setattr(
+        "comfier_agent.resources.disk_free_by_label",
+        lambda _config: {"disk": 1024},
+    )
     ok, reason = disk_acceptance(cfg)
     assert not ok
     assert reason

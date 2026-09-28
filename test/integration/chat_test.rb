@@ -53,6 +53,8 @@ class ChatTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
+    assert_match(/id="chat_composer"/, @response.body)
+    assert_match(/disabled="disabled"/, @response.body)
   end
 
   test 'unconfigured LiteLLM shows a calm unavailable page' do

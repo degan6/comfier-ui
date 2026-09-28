@@ -41,6 +41,7 @@ async def test_hello_status_inventory_order(folder_paths_stub):
         comfyui_url=cu_base,
         allow_insecure=True,
         enabled=True,
+        min_free_disk_gb=0,
     )
     runtime = AgentRuntime(cfg)
     task = asyncio.create_task(runtime.run(sidecar=True))
@@ -76,6 +77,7 @@ async def test_job_happy_path(folder_paths_stub):
         enabled=True,
         keep_outputs=True,
         comfyui_input_dir=str(inp),
+        min_free_disk_gb=0,
     )
     runtime = AgentRuntime(cfg)
     run_task = asyncio.create_task(runtime.run(sidecar=True))

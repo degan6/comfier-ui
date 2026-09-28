@@ -54,6 +54,7 @@ class AgentHarness:
             allow_insecure=True,
             enabled=True,
             comfyui_input_dir=str(self.inp),
+            min_free_disk_gb=0,
             **overrides,
         )
         self.runtime = AgentRuntime(cfg)

@@ -5,6 +5,15 @@ export default class extends Controller {
 
   connect() {
     this.scrollToBottom()
+    this.element.addEventListener("turbo:before-stream-render", this.onStreamRender)
+  }
+
+  disconnect() {
+    this.element.removeEventListener("turbo:before-stream-render", this.onStreamRender)
+  }
+
+  onStreamRender = () => {
+    requestAnimationFrame(() => this.scrollToBottom())
   }
 
   keydown(event) {
