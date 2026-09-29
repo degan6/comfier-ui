@@ -3,16 +3,23 @@ class SubmitGenerationJob < ApplicationJob
   queue_as :default
 
   def perform(generation)
-    return unless generation.queued? && generation.agent_state.nil?
+    return unless pending_submission?(generation)
     return generation.fail!('The workflow for this generation was removed') if generation.workflow.nil?
+
+    PromptPreprocessor.call(generation)
+    return unless pending_submission?(generation.reload)
 
     Backends::Runner.for(generation).submit(generation)
   rescue BackendSelector::NoBackendAvailable, Agent::Router::UnroutableError, Comfyui::Error,
-         WorkflowRenderer::MissingValue => e
-    fail_generation(generation, e.message)
+         WorkflowRenderer::MissingValue, PromptPreprocessor::Error => e
+    fail_generation(generation, e.message) if generation.reload.queued?
   end
 
   private
+
+  def pending_submission?(generation)
+    generation.queued? && generation.agent_state.nil?
+  end
 
   def fail_generation(generation, message)
     return generation.fail!(message) unless generation.agent_job?

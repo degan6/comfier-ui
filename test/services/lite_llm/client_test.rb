@@ -87,6 +87,31 @@ module LiteLlm
       end
     end
 
+    test 'preprocessing uses chat with thinking disabled and plain text output' do
+      with_env('LITELLM_URL' => 'http://litellm.test', 'LITELLM_MODEL' => nil) do
+        stub_request(:post, 'http://litellm.test/v1/chat/completions')
+          .with do |request|
+            body = JSON.parse(request.body)
+            body['model'] == 'chat' && body['max_tokens'] == 512 && !body.key?('response_format') &&
+              body.dig('extra_body', 'chat_template_kwargs', 'enable_thinking') == false
+          end
+          .to_return(body: { choices: [{ finish_reason: 'stop', message: { content: '  A bright shop.  ' } }] }.to_json)
+
+        assert_equal 'A bright shop.', Client.preprocess_prompt(system: 'Rewrite.', user: 'Lyrics')
+      end
+    end
+
+    test 'preprocessing rejects empty and truncated responses' do
+      with_env('LITELLM_URL' => 'http://litellm.test') do
+        [%w[length unfinished], ['stop', '   '], ['content_filter', 'blocked']].each do |finish, content|
+          stub_request(:post, 'http://litellm.test/v1/chat/completions')
+            .to_return(body: { choices: [{ finish_reason: finish, message: { content: } }] }.to_json)
+
+          assert_raises(Error) { Client.preprocess_prompt(system: 'Rewrite.', user: 'Lyrics') }
+        end
+      end
+    end
+
     test 'raises when the proxy cannot be reached' do
       with_env('LITELLM_URL' => 'http://litellm.test', 'LITELLM_MODEL' => 'gpt-test') do
         stub_request(:post, 'http://litellm.test/v1/chat/completions').to_raise(Errno::ECONNREFUSED)

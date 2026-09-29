@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_27_130000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_28_010000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -545,6 +545,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_27_130000) do
     t.string "kind", null: false
     t.string "name", null: false
     t.integer "position", default: 0, null: false
+    t.boolean "prompt_preprocessing_enabled", default: false, null: false
+    t.text "prompt_preprocessing_system_prompt"
     t.jsonb "requirements_json"
     t.boolean "requirements_need_review", default: false, null: false
     t.integer "steps", default: 20, null: false

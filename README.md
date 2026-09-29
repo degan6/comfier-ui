@@ -118,6 +118,15 @@ with the output attached. Email addresses and Slack IDs come from Authentik; use
 | `LITELLM_URL`, `LITELLM_API_KEY`, `LITELLM_MODEL` | LiteLLM proxy for the workflow placeholder assistant (Settings → Workflow assistant) |
 | `LITELLM_TIMEOUT_SECONDS` | Optional read timeout for LiteLLM requests (default `180`) |
 
+Workflows can opt into **Enable prompt preprocessing** in the admin editor. Supply a system prompt to explain
+how the user's input should be rewritten. Before submitting to ComfyUI, Comfier sends the prompt and any stored
+lyrics to the LiteLLM proxy's `chat` alias, then substitutes the plain-text response into `{{prompt}}`.
+The graph must use that placeholder. This is independent of `LITELLM_MODEL`, which selects the workflow assistant's
+model. The gateway must expose `chat`; preprocessing requests disable thinking and allow up to 512 output tokens.
+Empty, incomplete, or failed responses stop the generation with an error instead of submitting the original input.
+The original prompt is preserved, and the rewritten prompt is shown on the result page. Preprocessing is off by
+default for all existing and new workflows and adds latency before ComfyUI submission.
+
 ## Running locally
 
 ```bash

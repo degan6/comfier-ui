@@ -5,6 +5,7 @@ module LiteLlm
   # OpenAI-compatible chat client for a LiteLLM proxy.
   class Client
     include Http
+    include PromptPreprocessing
 
     NETWORK_ERRORS = [
       Timeout::Error, SocketError, SystemCallError, EOFError, IOError,
@@ -35,12 +36,14 @@ module LiteLlm
 
     def self.chat(system:, user:, audit: nil, **) = new.chat(system:, user:, audit:, **)
 
+    def self.preprocess_prompt(system:, user:, audit: nil) = new.preprocess_prompt(system:, user:, audit:)
+
     # `history` is earlier user/assistant turns, sent between the system prompt and `user`.
-    # `json_schema` ({ name:, schema: }) asks for structured output; LiteLLM translates it for Ollama,
-    # llama.cpp and LM Studio. Without it the reply is only held to being a JSON object.
+    # `json_schema` requests structured output; without it replies must be JSON objects.
     def chat(system:, user:, audit: nil, **)
       raise Error, 'LiteLLM is not configured (set LITELLM_URL and LITELLM_MODEL in .env)' unless self.class.configured?
 
+      @preprocessing = false
       @audit = audit
       @body = request_body(system:, user:, **)
       @started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -72,11 +75,12 @@ module LiteLlm
     def handle_success_body(response, duration_ms)
       parsed = JSON.parse(response.body)
       content = parsed.dig('choices', 0, 'message', 'content')
-      record_chat(chat_log(success: content.present?, duration_ms:, http_status: response.code, response_body: parsed,
-                           assistant_content: content))
-      raise Error, 'LiteLLM returned an empty reply' if content.blank?
+      error = response_error(parsed, content)
+      record_chat(chat_log(success: error.nil?, duration_ms:, http_status: response.code, response_body: parsed,
+                           assistant_content: content, error:))
+      raise Error, error if error
 
-      content
+      @preprocessing ? content.strip : content
     end
 
     def elapsed_ms
@@ -116,7 +120,7 @@ module LiteLlm
     end
 
     def record_chat(entry)
-      ActivityRecorder.log(entry, endpoint: completions_url.to_s, model: self.class.model)
+      ActivityRecorder.log(entry, endpoint: completions_url.to_s, model: @body[:model])
     end
   end
 end

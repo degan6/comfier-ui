@@ -3,6 +3,23 @@ require 'test_helper'
 class WorkflowTest < ActiveSupport::TestCase
   API_GRAPH = { '1' => { 'class_type' => 'CLIPTextEncode', 'inputs' => { 'text' => '{{prompt}}' } } }.freeze
 
+  test 'preprocessing is opt in and requires instructions and a prompt placeholder' do
+    workflow = workflows(:sd_image)
+
+    assert_not workflow.prompt_preprocessing_enabled?
+    workflow.prompt_preprocessing_enabled = true
+
+    assert_not workflow.valid?
+    assert_includes workflow.errors.attribute_names, :prompt_preprocessing_system_prompt
+    workflow.prompt_preprocessing_system_prompt = 'Rewrite the prompt.'
+
+    assert_predicate workflow, :valid?
+    workflow.graph = workflows(:image_to_3d).graph
+
+    assert_not workflow.valid?
+    assert_includes workflow.errors.attribute_names, :prompt_preprocessing_enabled
+  end
+
   test 'finds every placeholder in the graph' do
     assert_equal %w[height negative_prompt prompt seed width], workflows(:sd_image).placeholders.sort
     assert workflows(:sd_image).uses?(:prompt)

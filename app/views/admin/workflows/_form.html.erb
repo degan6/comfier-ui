@@ -48,6 +48,8 @@
       <%= render 'graph_json_section', workflow:, form: f %>
       <%= render 'placeholder_suggestion', suggestion: local_assigns[:placeholder_suggestion] %>
 
+      <%= render 'prompt_preprocessing', workflow:, form: f %>
+
       <div class="row g-3 mb-3">
         <div class="col-sm-3">
           <%= f.label :steps, 'Default steps', class: 'form-label' %>

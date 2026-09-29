@@ -7,6 +7,19 @@ class GenerationsTest < ActionDispatch::IntegrationTest
     sign_in_as users(:alice)
   end
 
+  test 'result shows the rewritten prompt separately from the original' do
+    generation = generations(:alice_done)
+    original = generation.prompt
+    generation.update!(parameters: generation.parameters.merge('preprocessed_prompt' => 'A magical shop.'))
+
+    get generation_path(generation)
+
+    assert_response :success
+    assert_select '.sidebar-card p', text: original
+    assert_select '.h-section-label', text: 'Prompt sent to the model'
+    assert_select '.sidebar-card p', text: 'A magical shop.'
+  end
+
   test 'creating a generation queues it and returns to the studio' do
     assert_difference('users(:alice).generations.count', 1) do
       assert_enqueued_with(job: SubmitGenerationJob) do

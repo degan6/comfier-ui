@@ -33,6 +33,9 @@ class Workflow < ApplicationRecord # rubocop:disable Metrics/ClassLength
   validates :frame_rate, numericality: { only_integer: true, in: 1..120 }
   validates :steps, numericality: { only_integer: true, in: 1..150 }
   validates :guidance, numericality: { greater_than: 0, less_than_or_equal_to: 30 }
+  validates :prompt_preprocessing_system_prompt, presence: true, if: :prompt_preprocessing_enabled?
+  validates :prompt_preprocessing_system_prompt, length: { maximum: 10_000 }
+  validate :preprocessing_has_prompt_input
   validate :graph_is_api_format
   validate :placeholders_are_known
   validate :model_list_is_valid
@@ -124,6 +127,12 @@ class Workflow < ApplicationRecord # rubocop:disable Metrics/ClassLength
 
   def requirements_inputs_changed?
     %w[graph ui_graph extra_models].any? { saved_change_to_attribute?(it) } || structure_hash.blank?
+  end
+
+  def preprocessing_has_prompt_input
+    return unless prompt_preprocessing_enabled? && !uses?(:prompt)
+
+    errors.add(:prompt_preprocessing_enabled, 'requires a {{prompt}} placeholder in the workflow')
   end
 
   # The models textarea shows what the graph needs too; keeping those lines unless they add a

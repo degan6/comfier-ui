@@ -121,6 +121,10 @@
         <div class="h-section-label">Lyrics</div>
         <p class="text-13 mb-3 text-break"><%= @generation.lyrics %></p>
       <% end %>
+      <% if @generation.parameters['preprocessed_prompt'].present? %>
+        <div class="h-section-label">Prompt sent to the model</div>
+        <p class="text-13 mb-3 text-break"><%= @generation.parameters['preprocessed_prompt'] %></p>
+      <% end %>
       <% if @generation.negative_prompt.present? %>
         <div class="h-section-label">Avoid</div>
         <p class="text-13 mb-3 text-break"><%= @generation.negative_prompt %></p>

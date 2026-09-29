@@ -35,6 +35,74 @@ class SubmitGenerationJobTest < ActiveJob::TestCase
     end
   end
 
+  test 'sends the preprocessed prompt to ComfyUI while preserving the user prompt' do
+    @generation.workflow.update!(prompt_preprocessing_enabled: true,
+                                 prompt_preprocessing_system_prompt: 'Write a scene.')
+    with_env('LITELLM_URL' => 'http://litellm.test') do
+      stub_request(:post, 'http://litellm.test/v1/chat/completions')
+        .to_return(body: { choices: [{ finish_reason: 'stop',
+                                       message: { content: 'A fox beneath a mushroom' } }] }.to_json)
+      submit = stub_request(:post, comfy_url(@backend, 'prompt'))
+               .with { |req| JSON.parse(req.body).dig('prompt', '6', 'inputs', 'text') == 'A fox beneath a mushroom' }
+               .to_return(body: { prompt_id: 'rewritten' }.to_json)
+
+      SubmitGenerationJob.perform_now(@generation)
+
+      assert_requested submit
+    end
+    assert_predicate @generation.reload, :running?
+    assert_equal 'A fox', @generation.prompt
+    assert_equal 'A fox beneath a mushroom', @generation.parameters['preprocessed_prompt']
+  end
+
+  test 'preprocessing failure stops the job before contacting ComfyUI' do
+    @generation.workflow.update!(prompt_preprocessing_enabled: true,
+                                 prompt_preprocessing_system_prompt: 'Write a scene.')
+    with_env('LITELLM_URL' => 'http://litellm.test') do
+      stub_request(:post, 'http://litellm.test/v1/chat/completions').to_return(status: 503)
+
+      assert_no_enqueued_jobs(only: PollGenerationJob) { SubmitGenerationJob.perform_now(@generation) }
+    end
+    assert_predicate @generation.reload, :failed?
+    assert_match(/Prompt preprocessing failed/, @generation.error_message)
+    assert_not_requested :post, comfy_url(@backend, 'prompt')
+  end
+
+  test 'agent submissions use the preprocessed prompt too' do
+    @generation.workflow.update!(prompt_preprocessing_enabled: true,
+                                 prompt_preprocessing_system_prompt: 'Write a scene.')
+    backend = create_agent_backend!(owner: @generation.user)
+    bring_online_for!(backend, @generation.workflow)
+    with_env('LITELLM_URL' => 'http://litellm.test') do
+      stub_request(:post, 'http://litellm.test/v1/chat/completions')
+        .to_return(body: { choices: [{ finish_reason: 'stop', message: { content: 'A bright forest' } }] }.to_json)
+
+      SubmitGenerationJob.perform_now(@generation)
+    end
+
+    assert_equal 'queued', @generation.reload.agent_state
+    assert_equal 'A bright forest', @generation.filled_workflow_json.dig('6', 'inputs', 'text')
+    assert_equal 'A fox', @generation.prompt
+    assert_not_requested :post, comfy_url(@backend, 'prompt')
+  end
+
+  test 'cancellation during preprocessing prevents submission' do
+    @generation.workflow.update!(prompt_preprocessing_enabled: true,
+                                 prompt_preprocessing_system_prompt: 'Write a scene.')
+    with_env('LITELLM_URL' => 'http://litellm.test') do
+      stub_request(:post, 'http://litellm.test/v1/chat/completions').to_return do
+        Generation.find(@generation.id).fail!('Cancelled')
+        { body: { choices: [{ finish_reason: 'stop', message: { content: 'A fox' } }] }.to_json }
+      end
+
+      SubmitGenerationJob.perform_now(@generation)
+    end
+
+    assert_equal 'Cancelled', @generation.reload.error_message
+    assert_predicate @generation, :failed?
+    assert_not_requested :post, comfy_url(@backend, 'prompt')
+  end
+
   test 'uploads the input image first and references it in the workflow' do
     generation = users(:alice).generations.create!(workflow: workflows(:image_to_3d),
                                                    input_image: png_upload('chest.png'))

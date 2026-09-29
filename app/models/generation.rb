@@ -80,9 +80,15 @@ class Generation < ApplicationRecord # rubocop:disable Metrics/ClassLength
 
   def style_name = workflow_name.presence || workflow&.name || 'Removed'
 
+  def effective_prompt
+    return prompt.to_s unless workflow&.prompt_preprocessing_enabled?
+
+    parameters['preprocessed_prompt'].presence || prompt.to_s
+  end
+
   def placeholder_values(image: nil)
     {
-      'prompt' => prompt.to_s, 'negative_prompt' => negative_prompt.to_s, 'seed' => seed,
+      'prompt' => effective_prompt, 'negative_prompt' => negative_prompt.to_s, 'seed' => seed,
       'width' => width, 'height' => height, 'duration' => duration, 'frames' => frames, 'image' => image,
       'steps' => steps, 'cfg' => cfg, 'denoise' => denoise, 'lyrics' => lyrics.to_s, 'batch_size' => batch_size
     }.compact

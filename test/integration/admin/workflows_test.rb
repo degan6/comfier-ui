@@ -86,6 +86,41 @@ module Admin
       assert_not workflow.reload.enabled?
     end
 
+    test 'preprocessing settings save and can be disabled without losing instructions' do
+      workflow = workflows(:sd_image)
+      patch admin_workflow_path(workflow), params: { workflow: {
+        prompt_preprocessing_enabled: '1', prompt_preprocessing_system_prompt: 'Return a visual scene.'
+      } }
+
+      assert_redirected_to edit_admin_workflow_path(workflow)
+      assert_predicate workflow.reload, :prompt_preprocessing_enabled?
+
+      get edit_admin_workflow_path(workflow)
+
+      assert_select '#workflow_prompt_preprocessing_enabled[checked][role=switch]'
+      assert_select '#prompt_preprocessing_settings:not([hidden])'
+      assert_select '#workflow_prompt_preprocessing_system_prompt', text: 'Return a visual scene.'
+
+      patch admin_workflow_path(workflow), params: { workflow: { prompt_preprocessing_enabled: '0' } }
+
+      assert_not workflow.reload.prompt_preprocessing_enabled?
+      assert_equal 'Return a visual scene.', workflow.prompt_preprocessing_system_prompt
+      get edit_admin_workflow_path(workflow)
+
+      assert_select '#prompt_preprocessing_settings[hidden]'
+    end
+
+    test 'enabled preprocessing with blank instructions returns a visible validation error' do
+      patch admin_workflow_path(workflows(:sd_image)), params: { workflow: {
+        prompt_preprocessing_enabled: '1', prompt_preprocessing_system_prompt: ''
+      } }
+
+      assert_response :unprocessable_content
+      assert_select '#prompt_preprocessing_settings:not([hidden])'
+      assert_select '.alert-danger', text: /system prompt can't be blank/
+      assert_not workflows(:sd_image).reload.prompt_preprocessing_enabled?
+    end
+
     test 'the models list takes download links and drops lines the graph already covers' do
       workflow = workflows(:sd_image)
       text = "# comments are ignored\ncheckpoints/v1-5-pruned-emaonly-fp16.safetensors\n\n" \

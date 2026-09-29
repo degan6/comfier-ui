@@ -128,7 +128,8 @@ module Admin
     def assign_workflow
       permitted = params.expect(workflow: %i[name kind description graph_json graph_file enabled position
                                              base_resolution frame_rate steps guidance required_models_text
-                                             models_file])
+                                             models_file prompt_preprocessing_enabled
+                                             prompt_preprocessing_system_prompt])
       exports = WorkflowExportRouter.route(
         @workflow,
         graph_file: permitted.delete(:graph_file),
