@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_28_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_28_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -62,6 +62,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_28_010000) do
 
   create_table "app_settings", force: :cascade do |t|
     t.boolean "allow_user_backends", default: true, null: false
+    t.string "chat_default_model"
+    t.text "chat_notice_text"
+    t.string "chat_notice_url"
     t.datetime "created_at", null: false
     t.decimal "email_notification_attachment_max_mb", precision: 8, scale: 3, default: "0.488", null: false
     t.text "placeholder_prompt"
@@ -202,6 +205,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_28_010000) do
     t.index ["enabled"], name: "index_backends_on_enabled"
     t.index ["name"], name: "index_backends_on_name", unique: true
     t.index ["owner_user_id"], name: "index_backends_on_owner_user_id"
+  end
+
+  create_table "chat_conversations", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "model"
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["user_id", "updated_at"], name: "index_chat_conversations_on_user_id_and_updated_at"
+    t.index ["user_id"], name: "index_chat_conversations_on_user_id"
+  end
+
+  create_table "chat_messages", force: :cascade do |t|
+    t.bigint "chat_conversation_id", null: false
+    t.text "content"
+    t.datetime "created_at", null: false
+    t.text "error"
+    t.string "role", null: false
+    t.string "status", default: "succeeded", null: false
+    t.datetime "updated_at", null: false
+    t.index ["chat_conversation_id"], name: "index_chat_messages_on_chat_conversation_id"
   end
 
   create_table "generation_inputs", force: :cascade do |t|
@@ -570,6 +594,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_28_010000) do
   add_foreign_key "backend_shares", "users"
   add_foreign_key "backend_speeds", "backends"
   add_foreign_key "backends", "users", column: "owner_user_id"
+  add_foreign_key "chat_conversations", "users"
+  add_foreign_key "chat_messages", "chat_conversations"
   add_foreign_key "generation_inputs", "generations"
   add_foreign_key "generation_outputs", "backends"
   add_foreign_key "generation_outputs", "generations"

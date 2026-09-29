@@ -6,10 +6,12 @@ module LiteLlm
 
       @preprocessing = true
       @audit = audit
+      @model = 'chat'
       @body = {
         model: 'chat', messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
         max_tokens: 512, extra_body: { chat_template_kwargs: { enable_thinking: false } }
       }
+      @log_body = RequestSanitizer.sanitize(@body.stringify_keys)
       @started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       deliver_chat
     rescue *Client::NETWORK_ERRORS => e

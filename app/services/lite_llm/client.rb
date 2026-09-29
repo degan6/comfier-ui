@@ -38,14 +38,38 @@ module LiteLlm
 
     def self.preprocess_prompt(system:, user:, audit: nil) = new.preprocess_prompt(system:, user:, audit:)
 
+    def self.complete(messages:, model: nil, audit: nil, temperature: nil, response_format: nil)
+      new.complete(messages:, model:, audit:, temperature:, response_format:)
+    end
+
+    def self.models = ModelsCatalog.list
+
+    def self.fallback_model_ids = ModelsCatalog.fallback_ids
+
     # `history` is earlier user/assistant turns, sent between the system prompt and `user`.
-    # `json_schema` requests structured output; without it replies must be JSON objects.
-    def chat(system:, user:, audit: nil, **)
+    # `json_schema` ({ name:, schema: }) asks for structured output; LiteLLM translates it for Ollama,
+    # llama.cpp and LM Studio. Without it the reply is only held to being a JSON object.
+    def chat(system:, user:, audit: nil, **kwargs)
+      history = kwargs.fetch(:history, [])
+      temperature = kwargs[:temperature]
+      json_schema = kwargs[:json_schema]
+      messages = [{ role: 'system', content: system }, *history, { role: 'user', content: user }]
+      complete(
+        messages:,
+        audit:,
+        temperature:,
+        response_format: response_format(json_schema)
+      )
+    end
+
+    def complete(messages:, model: nil, audit: nil, temperature: nil, response_format: nil)
       raise Error, 'LiteLLM is not configured (set LITELLM_URL and LITELLM_MODEL in .env)' unless self.class.configured?
 
       @preprocessing = false
       @audit = audit
-      @body = request_body(system:, user:, **)
+      @model = model.presence || self.class.model
+      @body = { model: @model, messages:, temperature:, response_format: }.compact
+      @log_body = RequestSanitizer.sanitize(@body.stringify_keys)
       @started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       deliver_chat
     rescue *NETWORK_ERRORS => e
@@ -89,7 +113,7 @@ module LiteLlm
 
     def chat_log(**attrs)
       ChatLog.new(
-        audit: @audit, request: @body,
+        audit: @audit, request: @log_body,
         duration_ms: attrs.fetch(:duration_ms),
         success: attrs.fetch(:success),
         http_status: attrs[:http_status],
@@ -99,15 +123,6 @@ module LiteLlm
       )
     end
 
-    def request_body(system:, user:, history: [], temperature: nil, json_schema: nil)
-      {
-        model: self.class.model,
-        messages: [{ role: 'system', content: system }, *history, { role: 'user', content: user }],
-        temperature:,
-        response_format: response_format(json_schema)
-      }.compact
-    end
-
     def response_format(json_schema)
       return { type: 'json_object' } unless json_schema
 
@@ -115,12 +130,10 @@ module LiteLlm
                                             schema: json_schema.fetch(:schema) } }
     end
 
-    def completions_url
-      URI("#{self.class.url}/v1/chat/completions")
-    end
+    def completions_url = URI("#{self.class.url}/v1/chat/completions")
 
     def record_chat(entry)
-      ActivityRecorder.log(entry, endpoint: completions_url.to_s, model: @body[:model])
+      ActivityRecorder.log(entry, endpoint: completions_url.to_s, model: @model)
     end
   end
 end

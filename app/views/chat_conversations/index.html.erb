@@ -1,0 +1,9 @@
+<%= render layout: 'chat_conversations/layout' do %>
+  <div class="chat-panel">
+    <%= render 'chat_conversations/notice' %>
+    <p class="text-13 text-secondary mb-3">Start a new conversation to ask questions or share an image for vision models.</p>
+    <%= button_to chats_path, method: :post, class: 'btn btn-primary btn-sm' do %>
+      <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>New chat
+    <% end %>
+  </div>
+<% end %>

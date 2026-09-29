@@ -112,6 +112,30 @@ module LiteLlm
       end
     end
 
+    test 'complete sends free-form chat without response_format' do
+      with_env('LITELLM_URL' => 'http://litellm.test', 'LITELLM_MODEL' => 'gpt-test') do
+        stub_request(:post, 'http://litellm.test/v1/chat/completions')
+          .with do |request|
+            body = JSON.parse(request.body)
+
+            assert_nil body['response_format']
+            assert_equal 'hello', body.dig('messages', 0, 'content')
+          end
+          .to_return(body: { choices: [{ message: { content: 'Hi there' } }] }.to_json)
+
+        assert_equal 'Hi there', Client.complete(messages: [{ role: 'user', content: 'hello' }])
+      end
+    end
+
+    test 'models lists ids from the LiteLLM proxy' do
+      with_env('LITELLM_URL' => 'http://litellm.test', 'LITELLM_MODEL' => 'gpt-test') do
+        stub_request(:get, 'http://litellm.test/v1/models')
+          .to_return(body: { data: [{ id: 'z-model' }, { id: 'a-model' }] }.to_json)
+
+        assert_equal %w[a-model z-model], Client.models
+      end
+    end
+
     test 'raises when the proxy cannot be reached' do
       with_env('LITELLM_URL' => 'http://litellm.test', 'LITELLM_MODEL' => 'gpt-test') do
         stub_request(:post, 'http://litellm.test/v1/chat/completions').to_raise(Errno::ECONNREFUSED)

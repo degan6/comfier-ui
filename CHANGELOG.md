@@ -5,6 +5,35 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [v0.9.2] - 2026-09-28
+
+### Fixed
+- **Chat**: Auto-scroll when new messages stream in (listen for Turbo streams on `document`).
+- **Chat**: Model picker keeps the full LiteLLM catalog after each reply instead of collapsing to the default model.
+
+## [v0.9.1] - 2026-09-28
+
+### Fixed
+- **Chat**: Send works again after the first reply (Turbo composer updates kept the wrong DOM target).
+
+## [v0.9.0] - 2026-09-28
+
+### Changed
+- GitHub Actions workflows run on `ubuntu-26.04` instead of the migrating `ubuntu-latest` image.
+
+### Fixed
+- Chat notice link URLs are validated as full `http`/`https` URLs (Brakeman `ValidationRegex`).
+
+## [v0.8.0] - 2026-09-28
+
+### Added
+- **Comfier Agent**: ComfyUI servers connect outbound to Comfier for job routing, sharing, model downloads, and queue
+  estimates. Members can register agent servers under **Servers** when admins allow it.
+- **Chat** tab (after 3D Model) when LiteLLM is configured: saved conversations, model picker fed from the proxy,
+  image upload for vision models, and async replies via Sidekiq.
+- **Settings → Chat** (admins): default model for new conversations and an optional notice at the top of Chat with a
+  link to a more capable chat system elsewhere.
+
 ## [v0.4.4] - 2026-09-26
 
 ### Fixed

@@ -21,6 +21,10 @@
             <% GenerationKind.all.each do |kind| %>
               <%= nav_item kind.label, kind.path, icon: kind.icon %>
             <% end %>
+            <% if LiteLlm::Client.configured? %>
+              <%= nav_item 'Chat', chats_path, icon: 'bi-chat-dots',
+                           active: request.path.start_with?('/chats') %>
+            <% end %>
             <%= nav_item 'Results', generations_path, icon: 'bi-grid-3x3-gap',
                          active: request.path.start_with?(generations_path) %>
             <%= nav_item 'Shared', shared_index_path, icon: 'bi-globe',

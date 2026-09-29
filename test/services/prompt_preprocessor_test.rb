@@ -51,6 +51,8 @@ class PromptPreprocessorTest < ActiveSupport::TestCase
 
     assert_equal 'chat', entry.details['model']
     assert_equal 'prompt_preprocessing', entry.details['source']
+    assert_equal 'Write a visual scene.', entry.details.dig('request', 'messages', 0, 'content')
+    assert_includes entry.details.dig('request', 'messages', 1, 'content'), @generation.prompt
     assert_equal @generation.user, entry.user
     assert entry.details['success']
   end

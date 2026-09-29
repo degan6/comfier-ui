@@ -8,6 +8,7 @@ ComfyUI servers your admins have set up; you never need to touch a node graph.
 - [Results](#results)
 - [Shared](#shared)
 - [Queue](#queue)
+- [Chat](#chat)
 - [Settings](#settings)
 - [Servers](#servers)
 - [For admins: backends](#for-admins-backends)
@@ -88,6 +89,21 @@ pre-filled when the prompt was shared.
 **Queue** shows every job waiting on or running on ComfyUI, with an estimate of when each will finish and when the
 queue will clear. Your own jobs show your prompt; other people's don't (admins see all). The number beside **Queue**
 in the navbar updates as jobs start and finish.
+
+## Chat
+
+When your admins have connected a LiteLLM proxy, **Chat** appears in the navbar (after **3D Model**). It is a simple
+text chat with your organization's models — not ComfyUI generation.
+
+- Choose **New chat** or pick an earlier conversation from the list on the left.
+- Type a message and choose **Send**. **Shift+Enter** adds a new line; **Enter** sends.
+- Pick a **model** from the menu before sending; the list comes from LiteLLM. Vision-capable models can take an
+  **Image** attachment with your message.
+- Replies appear when they're ready; you can leave the page and come back. If a reply fails, choose **Retry**.
+- Delete a conversation from the **⋯** menu at the top of the thread.
+
+Admins may show a notice at the top of Chat (for example, linking to a more capable chat system elsewhere). Configure
+that under **Settings → Chat**.
 
 ## Settings
 
@@ -225,7 +241,8 @@ input, and denoise only when the sampler starts from an encoded image. If LiteLL
 LLM, which replies with a list of substitutions — never a rewritten workflow. Comfier shows every proposed change in
 a table; untick any you don't want, add others with **Add by hand**, then choose **Save**. Only the ticked changes
 are written, and nothing else in the JSON changes. Without an LLM, inputs the rules couldn't place are listed so
-you can add them yourself. Edit the LLM's system prompt under **Settings → Workflow assistant**.
+you can add them yourself. Edit the LLM's system prompt under **Settings → Workflow assistant**. Member-facing
+**Chat** uses the same LiteLLM proxy; set its default model and optional top-of-page notice under **Settings → Chat**.
 
 To remove a workflow, open it (or use the **⋯** menu on the list) and choose **Delete**. Past results stay; they just
 lose the link back to this style.

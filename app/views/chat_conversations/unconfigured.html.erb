@@ -1,0 +1,13 @@
+<% content_for :title, 'Chat' %>
+
+<div class="status-panel status-attention text-13">
+  Chat isn't available yet. LiteLLM must be configured with
+  <% LiteLlm::Client.missing_config_keys.each do |key| %>
+    <code><%= key %></code><%= key == LiteLlm::Client.missing_config_keys.last ? '' : ' and ' %>
+  <% end %>
+  in <code>.env</code>.
+  <% if current_user.admin? %>
+    You can also set a default model and notice under
+    <%= link_to 'Settings → Chat', edit_admin_chat_setting_path %>.
+  <% end %>
+</div>

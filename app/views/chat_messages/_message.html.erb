@@ -1,0 +1,24 @@
+<%= tag.div id: dom_id(message), class: ['chat-message', "chat-message-#{message.role}"] do %>
+  <div class="chat-bubble text-13">
+    <% if message.user? %>
+      <% if message.content.present? %>
+        <div class="chat-message-text"><%= simple_format(h(message.display_content), {}, sanitize: false) %></div>
+      <% end %>
+      <%= chat_message_image_tag(message) %>
+    <% elsif message.pending? %>
+      <div class="text-secondary d-flex align-items-center gap-2">
+        <div class="spinner-border spinner-border-sm" role="status">
+          <span class="visually-hidden">Thinking</span>
+        </div>
+        Thinking…
+      </div>
+    <% elsif message.failed? %>
+      <span class="badge text-bg-danger-subtle mb-2">Failed</span>
+      <div class="text-secondary text-12 mb-2"><%= message.error %></div>
+      <%= button_to 'Retry', retry_chat_message_path(message.chat_conversation, message), method: :post,
+                    class: 'btn btn-outline-secondary btn-sm' %>
+    <% else %>
+      <div class="chat-message-text"><%= simple_format(h(message.display_content), {}, sanitize: false) %></div>
+    <% end %>
+  </div>
+<% end %>

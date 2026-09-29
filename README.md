@@ -115,7 +115,7 @@ with the output attached. Email addresses and Slack IDs come from Authentik; use
 | `NOTIFICATION_ATTACHMENT_MAX_MB` | Fallback attachment limit for both channels when the database is first created |
 | `NOTIFICATION_EMAIL_ATTACHMENT_MAX_MB` | Default email attachment limit (about `0.488` MB / 500 KB); falls back to `NOTIFICATION_ATTACHMENT_MAX_MB` |
 | `NOTIFICATION_SLACK_ATTACHMENT_MAX_MB` | Default Slack attachment limit (`5` MB); falls back to `NOTIFICATION_ATTACHMENT_MAX_MB` |
-| `LITELLM_URL`, `LITELLM_API_KEY`, `LITELLM_MODEL` | LiteLLM proxy for the workflow placeholder assistant (Settings → Workflow assistant) |
+| `LITELLM_URL`, `LITELLM_API_KEY`, `LITELLM_MODEL` | LiteLLM proxy for **Chat** and the workflow placeholder assistant (Settings → Chat / Workflow assistant) |
 | `LITELLM_TIMEOUT_SECONDS` | Optional read timeout for LiteLLM requests (default `180`) |
 
 Workflows can opt into **Enable prompt preprocessing** in the admin editor. Supply a system prompt to explain
