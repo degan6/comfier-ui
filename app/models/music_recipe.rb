@@ -1,7 +1,7 @@
 # Model-specific constraints for native music recipes. The agent validates again after placeholders are filled.
 module MusicRecipe
   OPTIONS = %w[command model prompt lyrics duration steps seed planning min_memory_gb].freeze
-  PLACEHOLDER = /\A\{\{\s*\w+\s*\}\}\z/
+  PLACEHOLDER = WorkflowRenderer::WHOLE_PLACEHOLDER
 
   module_function
 
@@ -10,8 +10,16 @@ module MusicRecipe
     found << '"model" must be yue2 or minimax-music3' unless %w[yue2 minimax-music3].include?(recipe['model'])
     unknown = recipe.keys - OPTIONS
     found << "unknown music options: #{unknown.join(', ')}" if unknown.any?
-    found << 'needs "prompt"' unless recipe['prompt'].is_a?(String) && recipe['prompt'].strip.size >= 3
-    found + numeric_problems(recipe) + planning_problems(recipe)
+    found + text_problems(recipe) + numeric_problems(recipe) + planning_problems(recipe)
+  end
+
+  def text_problems(recipe)
+    found = []
+    prompt = recipe['prompt']
+    lyrics = recipe.fetch('lyrics', '')
+    found << '"prompt" must have 3–2000 characters' unless prompt.is_a?(String) && (3..2000).cover?(prompt.strip.size)
+    found << '"lyrics" must be text, at most 6000 characters' unless lyrics.is_a?(String) && lyrics.size <= 6000
+    found
   end
 
   def numeric_problems(recipe)

@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **MLX music**: Apple Silicon agents can generate stereo WAV audio with YuE2 or MiniMax Music 3 without
+  ComfyUI. Install the agent with `[music]` or `[mac]`, then add an instrumental or vocal preset under
+  **Settings → Workflows → Runs on → MLX music**. Models download ahead of time or on first use; jobs can
+  be cancelled. Music recipes and submitted text are validated before a job is queued.
 - **Servers**: **Model overrides** let a server use its own version of a model file a workflow names, such as fp16
   weights on a Jetson Thor where fp8 gives static noise, or a smaller file on a card with less memory. Choose
   **Model overrides** on the server's page, pick the file, and give the replacement's name and download link, for every

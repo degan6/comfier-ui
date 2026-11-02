@@ -1,4 +1,4 @@
-"""Pinned native music models. No MLX imports: inventory and validation run on the agent loop."""
+"""Pinned native music models, recipe validation and local snapshot checks."""
 
 from __future__ import annotations
 
@@ -11,13 +11,11 @@ MODELS = {
         "repo": "ahmadw/YuE2-3B-MLX",
         "revision": "fe0a9050fd658257b486b880422d8872ee1f81e3",
         "patterns": ["generate.py", "yue2_model.py", "yue2_vae.py", "8bit/*", "README.md", "LICENSE*"],
-        "min_memory_gb": 32,
     },
     "minimax-music3": {
         "repo": "mlx-community/MiniMax-Music3-bf16",
         "revision": "83a5f2d365673689df5c8f36e21e108751fd92ea",
         "patterns": ["*.safetensors", "*.json", "*.model", "*.txt", "*.jinja", "README.md", "LICENSE*"],
-        "min_memory_gb": 96,
     },
 }
 OPTIONS = {"command", "model", "prompt", "lyrics", "duration", "steps", "seed", "planning", "min_memory_gb"}
@@ -51,9 +49,10 @@ def validate_recipe(recipe: dict) -> None:
 
 def complete_snapshot(path: Path, model: str) -> bool:
     if model == "yue2":
-        files = ["generate.py", "yue2_model.py", "yue2_vae.py", *(
-            "8bit/" + name for name in ("model.safetensors", "vae.safetensors", "config.json",
-                                        "vae_config.json", "qwen.tiktoken", "yue2_generation_config.json"))]
+        files = [
+            "generate.py", "yue2_model.py", "yue2_vae.py", "8bit/model.safetensors", "8bit/vae.safetensors",
+            "8bit/config.json", "8bit/vae_config.json", "8bit/qwen.tiktoken", "8bit/yue2_generation_config.json",
+        ]
     else:
         try:
             shards = set(json.loads((path / "model.safetensors.index.json").read_text())["weight_map"].values())

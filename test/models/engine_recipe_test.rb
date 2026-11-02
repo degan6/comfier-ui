@@ -122,6 +122,19 @@ class EngineRecipeTest < ActiveSupport::TestCase
     assert_empty EngineRecipe.problems('mlx_music', recipe.merge('model' => 'yue2', 'planning' => 'full'))
   end
 
+  test 'music recipes validate literal text while allowing placeholders' do
+    recipe = { 'command' => 'mlx_music.generate', 'model' => 'yue2', 'prompt' => '{{prompt}}' }
+
+    [123, [], nil, 'x' * 6001].each do |lyrics|
+      assert_match(/lyrics/, EngineRecipe.problems('mlx_music', recipe.merge('lyrics' => lyrics)).join)
+    end
+    ['ab', 'x' * 2001].each do |prompt|
+      assert_match(/prompt/, EngineRecipe.problems('mlx_music', recipe.merge('prompt' => prompt)).join)
+    end
+    assert_empty EngineRecipe.problems('mlx_music', recipe.merge('prompt' => 'x' * 2000, 'lyrics' => 'x' * 6000))
+    assert_empty EngineRecipe.problems('mlx_music', recipe.merge('lyrics' => '{{lyrics}}'))
+  end
+
   test 'every preset is a valid workflow for its page' do
     EnginePreset::ALL.each do |preset|
       workflow = Workflow.new(name: preset.label, kind: preset.kind, engine: preset.engine,

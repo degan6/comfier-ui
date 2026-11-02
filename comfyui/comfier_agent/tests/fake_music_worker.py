@@ -5,7 +5,7 @@ import time
 import wave
 
 if "--inventory" in sys.argv:
-    print(json.dumps({"version": "test", "models": ["yue2"], "catalog": ["yue2", "minimax-music3"]}))
+    print(json.dumps({"version": "test", "models": ["yue2"]}))
 elif "--download" in sys.argv:
     print(json.dumps({"event": "repo", "repo": "ahmadw/YuE2-3B-MLX"}), flush=True)
     print(json.dumps({"event": "done"}), flush=True)

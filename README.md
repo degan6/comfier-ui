@@ -311,10 +311,11 @@ the file from disk, so a playing video doesn't hold one of Puma's threads (`RAIL
 Web and Sidekiq talk to connected agents through Redis, so both need the same `REDIS_URL`. Sidekiq also runs the
 periodic jobs in `config/schedule.yml` (sidekiq-cron), which mark silent servers offline and recover their jobs.
 
-**Macs.** On Apple Silicon the agent can run image jobs with [mflux](https://github.com/filipstrand/mflux) and video
-jobs with [mlx-video](https://github.com/Blaizzy/mlx-video) instead of ComfyUI, installed as a login service with `uv tool install` and `comfier-agent service install` (the setup page shows
+**Macs.** On Apple Silicon the agent can run image jobs with [mflux](https://github.com/filipstrand/mflux), music
+with **MLX music** (YuE2 and MiniMax Music 3), and video with [mlx-video](https://github.com/Blaizzy/mlx-video)
+instead of ComfyUI, installed as a login service with `uv tool install` and `comfier-agent service install` (the setup page shows
 the commands). A Mac can run these alone or alongside ComfyUI; either way it runs one job at a time and hands memory
-between them. Admins add mflux and MLX video styles under **Settings → Workflows → Runs on**. See
+between them. Admins add mflux, MLX music, and MLX video styles under **Settings → Workflows → Runs on**. See
 [docs/mlx-engines-plan.md](docs/mlx-engines-plan.md) for the design.
 
 Directly connected servers (added by URL under **Settings → Backends**) keep working. An admin can convert one with

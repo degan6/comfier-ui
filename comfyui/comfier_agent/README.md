@@ -283,10 +283,8 @@ comfier-agent setup --comfyui-url none --engines mlx_music
 comfier-agent service install
 ```
 
-The `[mac]` extra includes music alongside image/video support. These commands use the version on the
-repository's default branch; the music changes must be published there before other users can install
-that version. For a checkout containing the changes, use `uv tool install --python 3.12 './comfyui/comfier_agent[music]'`
-from the repository root. Existing installations need an upgrade and service restart.
+The `[mac]` extra includes music alongside image/video support. Existing installations need an upgrade
+and service restart.
 
 Under Settings → Workflows, choose **MLX music** and one of the **YuE2 8-bit** or **MiniMax Music 3**
 instrumental/vocal presets. The audio page supplies the style prompt and, for vocal presets, lyrics.
@@ -295,17 +293,15 @@ this is guidance, not a guarantee. Presets do not automatically replace existing
 
 Models download from Hugging Face through the server's model-download controls, or on the first run,
 then work offline from the shared Hugging Face cache (`HF_HOME` / `HF_HUB_CACHE`). Inventory checks only
-local files, including all expected shards. Downloads, cancellation, deletion, disk accounting, output
-uploads and the shared GPU job slot use the existing native-engine infrastructure. `comfier-agent pull`
+local files, including all expected shards. `comfier-agent pull`
 remains an mflux-only command; use Comfier's server page to download music weights ahead of time.
 
-- **YuE2:** `ahmadw/YuE2-3B-MLX`, revision `fe0a9050fd658257b486b880422d8872ee1f81e3`, 8-bit weights
-  (about 4.2 GB). Its three inference Python files are downloaded from that same fixed revision and run
+- **YuE2:** `ahmadw/YuE2-3B-MLX`, 8-bit weights (about 4.2 GB). Its three inference Python files
+  are downloaded from the same pinned revision as the weights and run
   only inside the job worker. No Studio code is installed. The preset uses a conservative 32 GB memory
   estimate for short tracks; long tracks and score planning can need substantially more.
-- **MiniMax Music 3:** `mlx-community/MiniMax-Music3-bf16`, revision
-  `83a5f2d365673689df5c8f36e21e108751fd92ea` (about 28.5 GB), using `mlx-audio` commit
-  `784b29e2691a93ca7483147d86f61859dfaa6296` and MLX 0.32.2. The preset uses a conservative 96 GB memory
+- **MiniMax Music 3:** `mlx-community/MiniMax-Music3-bf16` (about 28.5 GB), using the pinned
+  `mlx-audio` runtime. The preset uses a conservative 96 GB memory
   estimate. MiniMax exposes stages and elapsed time, without a guessed percentage.
 
 Both generate stereo WAV files; MP3 export and Studio's library/score editor are not included.
@@ -333,5 +329,7 @@ A recipe uses this shape (blank lyrics means instrumental; nonempty lyrics means
 or `full`. MiniMax supports 1–30 steps and `planning: off`; its preset fixes steps at 30 so the Quality
 multiplier cannot exceed that limit. The agent accepts a duration ceiling up to 360 seconds for YuE2
 or 300 for MiniMax; Comfier's existing duration control currently limits requests to 1–30 seconds.
+Prompts must contain 3–2000 characters after trimming whitespace; lyrics can contain up to 6000 characters.
+These limits apply to the filled recipe, including any text added around placeholders.
 Outputs can end earlier than the ceiling. Seeds are integers from 0 through 4294967295. Model license
 terms still apply; see each model's downloaded README/license (YuE2 has noncommercial restrictions).

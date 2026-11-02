@@ -106,6 +106,33 @@ class GenerationTest < ActiveSupport::TestCase
     assert_equal "Verse one\nChorus", generation.parameters['lyrics']
   end
 
+  test 'music validates filled prompts and lyrics before queueing' do
+    workflow = engine_workflow!(name: 'YuE2 vocals', preset: 'yue2-vocals')
+    workflow.graph['prompt'] = 'Music: {{prompt}}'
+    workflow.graph['lyrics'] = "[Verse]\n{{lyrics}}"
+    workflow.save!
+    generation = build(workflow, prompt: 'x' * 1993, lyrics: 'x' * 5992)
+
+    assert_predicate generation, :valid?
+    generation.prompt += '{{prompt}}'
+
+    assert_not generation.valid?
+    assert_match(/prompt.*3–2000/, generation.errors.full_messages.join)
+    generation.prompt = 'warm piano'
+    generation.lyrics += '{{lyrics}}'
+
+    assert_not generation.valid?
+    assert_match(/lyrics.*6000/, generation.errors.full_messages.join)
+  end
+
+  test 'music requires at least three prompt characters without restricting other engines' do
+    workflow = engine_workflow!(name: 'MiniMax instrumental', preset: 'minimax-music3-instrumental')
+
+    assert_not build(workflow, prompt: ' x ').valid?
+    assert_predicate build(workflow, prompt: '  piano  '), :valid?
+    assert_predicate build(prompt: 'x' * 10_000), :valid?
+  end
+
   test 'requires an input image when the workflow takes one' do
     generation = build(workflows(:image_to_3d))
 

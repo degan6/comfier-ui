@@ -48,24 +48,22 @@ async def test_inventory_download_and_model_mapping(engine):
     assert engine.download_argv("yue2")[-2:] == ["--download", "yue2"]
     with pytest.raises(ValueError):
         engine.download_argv("arbitrary/repo")
-    progress = []
 
     async def report(value):
-        progress.append(value)
+        pass
 
     await engine.download("yue2", progress=report, cancelled=lambda: False)
     assert engine._refreshed_at is None
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model", MODELS)
-async def test_job_writes_audio_and_frees_process(engine, model):
+async def test_job_writes_audio_and_frees_process(engine):
     events = []
 
     async def progress(ctx, phase, fraction, **extra):
         events.append((phase, fraction))
 
-    outputs = await engine.execute(JobContext("music1"), {**RECIPE, "model": model}, timeout_s=5, progress=progress)
+    outputs = await engine.execute(JobContext("music1"), RECIPE, timeout_s=5, progress=progress)
     assert outputs[0]["filename"] == "music_music1.wav"
     assert Path(await engine.fetch_output(outputs[0])).stat().st_size > 44
     assert not engine.process.running
@@ -168,8 +166,7 @@ def test_engine_registration(monkeypatch):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model", MODELS)
-async def test_music_only_agent_uploads_audio(agent, monkeypatch, comfier_home, model):
+async def test_music_only_agent_uploads_audio(agent, monkeypatch, comfier_home):
     from comfier_agent.engines import mlx_music
     monkeypatch.setattr(mlx_music, "default_worker_argv", lambda: [sys.executable, FAKE])
     await agent.comfy.stop()
@@ -178,7 +175,7 @@ async def test_music_only_agent_uploads_audio(agent, monkeypatch, comfier_home, 
     assert set(hello["engines"]) == {"mlx_music"}
     assert hello["engines"]["mlx_music"]["models"] == ["yue2"]
     await agent.front.send(agent.assign("j_music", engine="mlx_music", inputs=[], requires={},
-                                        workflow={**RECIPE, "model": model}))
+                                        workflow=RECIPE))
     done = (await agent.front.wait_for_types("job.completed", timeout=10))[0]
     output = done["outputs"][0]
     assert output["kind"] == "audio"
@@ -187,3 +184,72 @@ async def test_music_only_agent_uploads_audio(agent, monkeypatch, comfier_home, 
     assert agent.front.uploads[-1]["filename"] == "music_j_music.wav"
     assert not runtime.engines["mlx_music"].process.running
     assert not (Path(runtime.config.work_dir) / "j_music").exists()
+
+
+def test_yue_adapter_passes_sampling_and_model_options(monkeypatch, tmp_path):
+    from dataclasses import dataclass
+
+    @dataclass
+    class Sampling:
+        max_tokens: int = 9000
+        min_tokens: int = 100
+
+    calls = {}
+
+    class Pipeline:
+        semantic_sampling = Sampling()
+
+        def __init__(self, path, **kwargs):
+            calls["path"] = path
+
+        def __call__(self, prompt, lyrics, **kwargs):
+            calls.update(prompt=prompt, lyrics=lyrics, **kwargs)
+            return "audio", None
+
+    module = types.ModuleType("comfier_yue2_generate")
+    module.Yue2Pipeline = Pipeline
+    module.write_wav = lambda path, audio: calls.update(output=path, audio=audio)
+    spec = types.SimpleNamespace(name=module.__name__, loader=types.SimpleNamespace(exec_module=lambda _: None))
+    monkeypatch.setattr(music_worker.importlib.util, "spec_from_file_location", lambda *args: spec)
+    monkeypatch.setattr(music_worker.importlib.util, "module_from_spec", lambda _: module)
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    output = tmp_path / "song.wav"
+    music_worker.run_yue(tmp_path, {**RECIPE, "lyrics": "Sea", "planning": "full", "steps": 8}, output)
+
+    assert calls == {
+        "path": tmp_path / "8bit", "prompt": "warm piano", "lyrics": "Sea", "cot": "full", "seed": 0,
+        "steps": 8, "semantic_sampling": Sampling(max_tokens=25, min_tokens=25), "output": output, "audio": "audio",
+    }
+
+
+def test_minimax_adapter_passes_options_and_rejects_invalid_audio(monkeypatch, tmp_path):
+    import numpy as np
+
+    calls = {}
+    audio = np.ones((100, 2))
+
+    def generate(**kwargs):
+        calls.update(kwargs)
+        yield types.SimpleNamespace(audio=audio, sample_rate=44100)
+
+    def load(path):
+        calls["path"] = path
+        return types.SimpleNamespace(generate=generate)
+
+    def write(output, value, sample_rate):
+        calls.update(output=output, sample_rate=sample_rate)
+        assert value is audio
+
+    monkeypatch.setitem(sys.modules, "mlx_audio.music", types.SimpleNamespace(load=load))
+    monkeypatch.setitem(sys.modules, "mlx_audio.audio_io", types.SimpleNamespace(write=write))
+    output = tmp_path / "song.wav"
+    recipe = {**RECIPE, "lyrics": "Sea", "steps": 12}
+    music_worker.run_minimax(tmp_path, recipe, output)
+    assert calls == {
+        "path": str(tmp_path), "text": "warm piano", "lyrics": "Sea", "duration": 1, "steps": 12,
+        "seed": 0, "output": output, "sample_rate": 44100,
+    }
+    for audio in (np.array([]), np.array([float("nan")])):
+        with pytest.raises(ValueError, match="invalid audio"):
+            music_worker.run_minimax(tmp_path, recipe, output)

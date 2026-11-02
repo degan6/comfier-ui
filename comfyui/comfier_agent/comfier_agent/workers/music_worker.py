@@ -43,7 +43,7 @@ def inventory() -> dict:
         except (OSError, ValueError):
             continue
         models.append(model)
-    return {"models": models, "catalog": list(MODELS), "version": version("mlx-audio")}
+    return {"models": models, "version": version("mlx-audio")}
 
 
 def run_yue(path: Path, recipe: dict, output: Path) -> None:
@@ -87,7 +87,6 @@ def generate(recipe: dict, output: Path) -> None:
     if not recipe.get("lyrics", "").strip():
         recipe["lyrics"] = "[Instrumental]"
         recipe["prompt"] += ", instrumental, no vocals"
-    emit("loading")
     path = snapshot(recipe["model"])
     output.parent.mkdir(parents=True, exist_ok=True)
     (run_yue if recipe["model"] == "yue2" else run_minimax)(path, recipe, output)
@@ -116,7 +115,7 @@ def main(argv=None) -> int:
             if args.output is None:
                 raise ValueError("--output is required for generation")
             generate(json.load(sys.stdin), args.output)
-    except Exception as exc:  # every worker failure must reach the agent
+    except Exception as exc:
         emit("error", message=f"{type(exc).__name__}: {exc}")
         return 1
     return 0

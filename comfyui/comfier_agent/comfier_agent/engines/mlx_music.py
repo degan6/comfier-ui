@@ -16,6 +16,10 @@ from comfier_agent.music_models import MODELS, validate_recipe
 
 LOG = logging.getLogger("comfier_agent")
 
+PROBE_TIMEOUT_S = 120
+PROBE_MAX_AGE_S = 600
+POLL_S = 0.5
+
 
 def default_worker_argv() -> list[str]:
     return [sys.executable, "-m", "comfier_agent.workers.music_worker"]
@@ -38,12 +42,12 @@ class MlxMusicEngine(MlxEngine):
             raise JobError("validate", str(exc)) from exc
 
     async def refresh(self) -> None:
-        if self._refreshed_at and time.monotonic() - self._refreshed_at < 600:
+        if self._refreshed_at and time.monotonic() - self._refreshed_at < PROBE_MAX_AGE_S:
             return
         probe = ChildProcess("music inventory")
         try:
             await probe.start([*self.worker_argv, "--inventory"], stdout=True)
-            out = await asyncio.wait_for(probe.proc.stdout.read(), 120)
+            out = await asyncio.wait_for(probe.proc.stdout.read(), PROBE_TIMEOUT_S)
             code = await probe.wait()
             data = json.loads(out.decode().strip().splitlines()[-1])
             if code or "event" in data:
@@ -97,8 +101,6 @@ class MlxMusicEngine(MlxEngine):
         self.process = ChildProcess("MLX music", on_line=on_line)
         ctx.timings.mark_prompt()
         ctx.phase = "loading_model"
-        deadline = time.monotonic() + self.config.mlx_load_timeout_s
-        wait = None
         try:
             await self.process.start([*self.worker_argv, "--generate", "--output", str(output)],
                                      stdin=True, merged=True)
@@ -106,7 +108,17 @@ class MlxMusicEngine(MlxEngine):
             await self.process.proc.stdin.drain()
             self.process.proc.stdin.close()
             await progress(ctx, "loading_model", 0.0)
-            wait = asyncio.create_task(self.process.wait())
+            await self._follow(ctx, state, timeout_s=timeout_s, progress=progress)
+            ctx.timings.mark_execution_end()
+            return self.outputs(ctx, output)
+        finally:
+            await self.process.stop()
+            self._refreshed_at = None
+
+    async def _follow(self, ctx: JobContext, state: dict, *, timeout_s: int, progress: ProgressFn) -> None:
+        deadline = time.monotonic() + self.config.mlx_load_timeout_s
+        wait = asyncio.create_task(self.process.wait())
+        try:
             while True:
                 if ctx.cancel_requested:
                     raise JobCancelled()
@@ -122,20 +134,17 @@ class MlxMusicEngine(MlxEngine):
                 # No invented percentage: MiniMax has no reliable per-step progress callback.
                 await progress(ctx, "running" if state["loaded"] else "loading_model", 0.0,
                                node=state["stage"] if state["loaded"] else "loading_model")
-                done, _ = await asyncio.wait({wait}, timeout=0.5)
+                done, _ = await asyncio.wait({wait}, timeout=POLL_S)
                 if done:
                     break
             if ctx.cancel_requested:
                 raise JobCancelled()
             if wait.result() != 0 or not state["done"]:
                 raise JobError("execute", state["error"] or f"music worker stopped: {self.process.tail()}")
-            ctx.timings.mark_execution_end()
-            return self.outputs(ctx, output)
         finally:
-            await self.process.stop()
-            if wait and not wait.done():
+            if not wait.done():
+                await self.process.stop()
                 await wait
-            self._refreshed_at = None
 
     async def cancel(self, ctx: JobContext) -> bool:
         await self.free_memory()

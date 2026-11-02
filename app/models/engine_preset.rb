@@ -1,4 +1,4 @@
-# Starting recipes for mflux and MLX video workflows, offered on the admin workflow form. Memory
+# Starting recipes for native image, music and video workflows, offered on the admin workflow form. Memory
 # figures are rough guides (LTX-2.3 is a 22B video model plus a 12B Gemma text encoder, in bf16); edit
 # `min_memory_gb` in the recipe to match your Macs.
 class EnginePreset # rubocop:disable Metrics/ClassLength
@@ -40,20 +40,23 @@ class EnginePreset # rubocop:disable Metrics/ClassLength
   LTX_25_8BIT_VIDEO = { **LTX_VIDEO, 'min_memory_gb' => 48 }.freeze
 
   MUSIC_MODES = %w[instrumental vocals].freeze
+  MUSIC_MODELS = [
+    { model: 'yue2', label: 'YuE2 8-bit', steps: '{{steps}}', default_steps: 32, memory: 32 },
+    { model: 'minimax-music3', label: 'MiniMax Music 3', steps: 30, default_steps: 30, memory: 96 }
+  ].freeze
 
   ALL = [
     # Duration is a ceiling; blank lyrics condition an instrumental. Vocal presets expose the lyrics field.
-    *%w[yue2 minimax-music3].flat_map do |model|
-      minimax = model == 'minimax-music3'
+    *MUSIC_MODELS.flat_map do |spec|
       MUSIC_MODES.map do |mode|
-        Preset.new(engine: 'mlx_music', key: "#{model}-#{mode}",
-                   label: "#{minimax ? 'MiniMax Music 3' : 'YuE2 8-bit'} — #{mode}", kind: 'audio',
+        Preset.new(engine: 'mlx_music', key: "#{spec[:model]}-#{mode}",
+                   label: "#{spec[:label]} — #{mode}", kind: 'audio',
                    recipe: {
-                     'command' => 'mlx_music.generate', 'model' => model, 'prompt' => '{{prompt}}',
+                     'command' => 'mlx_music.generate', 'model' => spec[:model], 'prompt' => '{{prompt}}',
                      'lyrics' => mode == 'vocals' ? '{{lyrics}}' : '', 'duration' => '{{duration}}',
-                     'steps' => minimax ? 30 : '{{steps}}', 'seed' => '{{seed}}', 'planning' => 'off',
-                     'min_memory_gb' => minimax ? 96 : 32
-                   }, settings: { 'steps' => minimax ? 30 : 32 })
+                     'steps' => spec[:steps], 'seed' => '{{seed}}', 'planning' => 'off',
+                     'min_memory_gb' => spec[:memory]
+                   }, settings: { 'steps' => spec[:default_steps] })
       end
     end,
     Preset.new(engine: 'mflux', key: 'z-image-turbo', label: 'Z-Image Turbo (fast, 16 GB)', kind: 'image', recipe: {
