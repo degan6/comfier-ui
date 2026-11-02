@@ -11,11 +11,13 @@
 module EngineRecipe # rubocop:disable Metrics/ModuleLength
   COMMANDS = {
     'mflux' => /\Amflux-generate[a-z0-9.-]*\z/,
-    'mlx_video' => /\Amlx_video(\.[a-z0-9_]+)+\z/
+    'mlx_video' => /\Amlx_video(\.[a-z0-9_]+)+\z/,
+    'mlx_music' => /\Amlx_music\.generate\z/
   }.freeze
   COMMAND_HINTS = {
     'mflux' => 'an mflux command such as mflux-generate-z-image-turbo',
-    'mlx_video' => 'an mlx-video module such as mlx_video.ltx_2.generate'
+    'mlx_video' => 'an mlx-video module such as mlx_video.ltx_2.generate',
+    'mlx_music' => 'mlx_music.generate'
   }.freeze
   KEY = /\A[a-z][a-z0-9_]*\z/
   # The Gemma 3 text encoder LTX-2.3 is known to work with in mlx-video.
@@ -49,6 +51,7 @@ module EngineRecipe # rubocop:disable Metrics/ModuleLength
     found << command_problem(engine, recipe['command']) unless valid_command?(engine, recipe['command'])
     found << 'needs "model"' if engine == 'mflux' && !recipe['model'].is_a?(String)
     found.concat(mlx_video_model_problems(recipe)) if engine == 'mlx_video'
+    found.concat(MusicRecipe.problems(recipe)) if engine == 'mlx_music'
     found << "has too many options (#{recipe.size})" if recipe.size > MAX_KEYS
     found
   end

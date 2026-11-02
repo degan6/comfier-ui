@@ -104,7 +104,7 @@ Environment variables override `comfier_agent.json`.
 | `HF_PROXY_TOKEN_HEADER` | `X-Proxy-Token` | Header name for `HF_PROXY_TOKEN`. |
 | `COMFIER_USE_HF_CLI` | `true` | Use the `hf` / `huggingface-cli` tool for Hub `/resolve/` links (falls back to HTTP). |
 | `COMFIER_MAX_CONCURRENT_DOWNLOADS` | `1` | Parallel model downloads (`0` = no limit). |
-| `COMFIER_ENGINES` | detected | Comma-separated engines to run: `comfyui`, `mflux`, `mlx_video`. Default: ComfyUI plus whichever of mflux and mlx-video are installed. Leave out `comfyui` on a Mac that doesn't run it. |
+| `COMFIER_ENGINES` | detected | Comma-separated engines to run: `comfyui`, `mflux`, `mlx_video`, `mlx_music`. Default: ComfyUI plus whichever native MLX engines are installed. Leave out `comfyui` on a Mac that doesn't run it. |
 | `COMFIER_WORK_DIR` | `~/.comfier/work` | Where mflux and mlx-video jobs keep their inputs and results while they run. |
 | `COMFIER_MLX_IDLE_UNLOAD_MINUTES` | `10` | Unload mflux's model after this long without a job (`0` keeps it loaded). |
 | `COMFIER_MLX_LOAD_TIMEOUT_SECONDS` | `3600` | How long loading an mflux or mlx-video model may take, including its first download. The job's time limit starts after. |
@@ -272,3 +272,66 @@ docker compose -f docker-compose.test.yml run --rm e2e
   before their job runs on someone else's server.
 - Download tokens you add in Comfier are only sent to the matching site and its subdomains. When a download redirects
   to another host, the agent drops every credential header.
+## Native music on Apple Silicon (YuE2 and MiniMax Music 3)
+
+The `mlx_music` engine runs inference in agent-owned child processes. It needs neither ComfyUI nor
+YueStudio. Install on an Apple Silicon Mac with Python 3.12:
+
+```sh
+uv tool install --python 3.12 "comfier-agent[music] @ git+https://github.com/romkey/comfier-ui.git#subdirectory=comfyui/comfier_agent"
+comfier-agent setup --comfyui-url none --engines mlx_music
+comfier-agent service install
+```
+
+The `[mac]` extra includes music alongside image/video support. These commands use the version on the
+repository's default branch; the music changes must be published there before other users can install
+that version. For a checkout containing the changes, use `uv tool install --python 3.12 './comfyui/comfier_agent[music]'`
+from the repository root. Existing installations need an upgrade and service restart.
+
+Under Settings → Workflows, choose **MLX music** and one of the **YuE2 8-bit** or **MiniMax Music 3**
+instrumental/vocal presets. The audio page supplies the style prompt and, for vocal presets, lyrics.
+Instrumental presets condition the model with `[Instrumental]` and `instrumental, no vocals`;
+this is guidance, not a guarantee. Presets do not automatically replace existing ComfyUI music workflows.
+
+Models download from Hugging Face through the server's model-download controls, or on the first run,
+then work offline from the shared Hugging Face cache (`HF_HOME` / `HF_HUB_CACHE`). Inventory checks only
+local files, including all expected shards. Downloads, cancellation, deletion, disk accounting, output
+uploads and the shared GPU job slot use the existing native-engine infrastructure. `comfier-agent pull`
+remains an mflux-only command; use Comfier's server page to download music weights ahead of time.
+
+- **YuE2:** `ahmadw/YuE2-3B-MLX`, revision `fe0a9050fd658257b486b880422d8872ee1f81e3`, 8-bit weights
+  (about 4.2 GB). Its three inference Python files are downloaded from that same fixed revision and run
+  only inside the job worker. No Studio code is installed. The preset uses a conservative 32 GB memory
+  estimate for short tracks; long tracks and score planning can need substantially more.
+- **MiniMax Music 3:** `mlx-community/MiniMax-Music3-bf16`, revision
+  `83a5f2d365673689df5c8f36e21e108751fd92ea` (about 28.5 GB), using `mlx-audio` commit
+  `784b29e2691a93ca7483147d86f61859dfaa6296` and MLX 0.32.2. The preset uses a conservative 96 GB memory
+  estimate. MiniMax exposes stages and elapsed time, without a guessed percentage.
+
+Both generate stereo WAV files; MP3 export and Studio's library/score editor are not included.
+A process exits after each job, freeing its model memory; cancellation terminates the entire process group.
+Loading/first-download time uses `mlx_load_timeout_s`; inference uses the workflow's normal job timeout.
+Raise the audio workflow timeout for slower Macs or long generations.
+
+A recipe uses this shape (blank lyrics means instrumental; nonempty lyrics means vocals):
+
+```json
+{
+  "command": "mlx_music.generate",
+  "model": "yue2",
+  "prompt": "{{prompt}}",
+  "lyrics": "{{lyrics}}",
+  "duration": "{{duration}}",
+  "steps": 32,
+  "seed": "{{seed}}",
+  "planning": "off",
+  "min_memory_gb": 32
+}
+```
+
+`model` is `yue2` or `minimax-music3`. YuE2 supports 1–256 steps and `planning` values `off`, `melody`,
+or `full`. MiniMax supports 1–30 steps and `planning: off`; its preset fixes steps at 30 so the Quality
+multiplier cannot exceed that limit. The agent accepts a duration ceiling up to 360 seconds for YuE2
+or 300 for MiniMax; Comfier's existing duration control currently limits requests to 1–30 seconds.
+Outputs can end earlier than the ceiling. Seeds are integers from 0 through 4294967295. Model license
+terms still apply; see each model's downloaded README/license (YuE2 has noncommercial restrictions).

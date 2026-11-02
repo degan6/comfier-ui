@@ -1,7 +1,7 @@
 # Starting recipes for mflux and MLX video workflows, offered on the admin workflow form. Memory
 # figures are rough guides (LTX-2.3 is a 22B video model plus a 12B Gemma text encoder, in bf16); edit
 # `min_memory_gb` in the recipe to match your Macs.
-class EnginePreset
+class EnginePreset # rubocop:disable Metrics/ClassLength
   # `settings` are the style's own fields (steps, guidance, frame_rate) the form fills in with the recipe.
   Preset = Data.define(:engine, :key, :label, :kind, :recipe, :settings) do
     def initialize(settings: {}, **) = super
@@ -39,7 +39,23 @@ class EnginePreset
   LTX_25_8BIT = { **LTX_25, 'quantize' => 8 }.freeze
   LTX_25_8BIT_VIDEO = { **LTX_VIDEO, 'min_memory_gb' => 48 }.freeze
 
+  MUSIC_MODES = %w[instrumental vocals].freeze
+
   ALL = [
+    # Duration is a ceiling; blank lyrics condition an instrumental. Vocal presets expose the lyrics field.
+    *%w[yue2 minimax-music3].flat_map do |model|
+      minimax = model == 'minimax-music3'
+      MUSIC_MODES.map do |mode|
+        Preset.new(engine: 'mlx_music', key: "#{model}-#{mode}",
+                   label: "#{minimax ? 'MiniMax Music 3' : 'YuE2 8-bit'} — #{mode}", kind: 'audio',
+                   recipe: {
+                     'command' => 'mlx_music.generate', 'model' => model, 'prompt' => '{{prompt}}',
+                     'lyrics' => mode == 'vocals' ? '{{lyrics}}' : '', 'duration' => '{{duration}}',
+                     'steps' => minimax ? 30 : '{{steps}}', 'seed' => '{{seed}}', 'planning' => 'off',
+                     'min_memory_gb' => minimax ? 96 : 32
+                   }, settings: { 'steps' => minimax ? 30 : 32 })
+      end
+    end,
     Preset.new(engine: 'mflux', key: 'z-image-turbo', label: 'Z-Image Turbo (fast, 16 GB)', kind: 'image', recipe: {
                  'command' => 'mflux-generate-z-image-turbo', 'model' => 'z-image-turbo', 'quantize' => 8,
                  'steps' => 9, **IMAGE, 'min_memory_gb' => 16

@@ -7,9 +7,9 @@ import logging
 
 LOG = logging.getLogger("comfier_agent")
 
-KNOWN = ("comfyui", "mflux", "mlx_video")
+KNOWN = ("comfyui", "mflux", "mlx_video", "mlx_music")
 # The Python package each MLX engine needs.
-MLX_PACKAGES = {"mflux": "mflux", "mlx_video": "mlx_video"}
+MLX_PACKAGES = {"mflux": "mflux", "mlx_video": "mlx_video", "mlx_music": "mlx_audio"}
 
 
 def installed(package: str) -> bool:
@@ -44,6 +44,10 @@ def build_engines(config, comfy) -> dict:
             from comfier_agent.engines.mlx_video import MlxVideoEngine
 
             engines[name] = MlxVideoEngine(config)
+        elif name == "mlx_music":
+            from comfier_agent.engines.mlx_music import MlxMusicEngine
+
+            engines[name] = MlxMusicEngine(config)
         if name in MLX_PACKAGES and not installed(MLX_PACKAGES[name]):
             LOG.warning("%s is enabled but the %s package isn't installed; its jobs will fail", name,
                         MLX_PACKAGES[name])

@@ -136,7 +136,7 @@ class AgentConfig:
     hf_endpoint: str | None = None
     hf_proxy_token: str | None = None
     hf_proxy_token_header: str = "X-Proxy-Token"
-    # Engines to run: comfyui, mflux, mlx_video. None runs ComfyUI plus whichever MLX tools are installed.
+    # Engines to run: comfyui, mflux, mlx_video, mlx_music. None runs ComfyUI plus whichever MLX tools are installed.
     engines: list[str] | None = None
     work_dir: str = field(default_factory=lambda: str(comfier_home() / "work"))
     mlx_idle_unload_minutes: float = 10.0
