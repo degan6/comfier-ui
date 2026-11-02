@@ -118,6 +118,26 @@ module Agent
       assert_predicate Availability.compute(@workflow, @backend.reload), :blocked?
     end
 
+    test 'music runs without ComfyUI and offers missing weights as an engine download' do
+      music = engine_workflow!(name: 'MiniMax music', preset: 'minimax-music3-instrumental')
+      bring_mac_online!(@backend, engines: { mlx_music: { models: [] } }, ram_gb: 128, comfyui: false)
+      result = Availability.compute(music, @backend.reload)
+
+      assert_predicate result, :ready?
+      assert_equal [{ 'folder' => 'mlx_music', 'filename' => 'minimax-music3', 'engine' => 'mlx_music' }], result.models
+      assert_match(/first run downloads/, result.hints.first)
+    end
+
+    test 'music models have independent availability and memory checks' do
+      yue = engine_workflow!(name: 'YuE2 music', preset: 'yue2-vocals')
+      minimax = engine_workflow!(name: 'MiniMax music', preset: 'minimax-music3-vocals')
+      bring_mac_online!(@backend, engines: { mlx_music: { models: %w[yue2] } }, ram_gb: 32, comfyui: false)
+
+      assert_empty Availability.compute(yue, @backend.reload).models
+      assert_predicate Availability.compute(yue, @backend), :ready?
+      assert_match(/needs about 96 GB/, Availability.compute(minimax, @backend).reasons.first)
+    end
+
     test 'a Mac that only runs MLX engines is never picked for ComfyUI styles' do
       bring_mac_online!(@backend, engines: { mflux: { models: [] } }, comfyui: false)
       result = Availability.compute(workflows(:sd_image), @backend.reload)

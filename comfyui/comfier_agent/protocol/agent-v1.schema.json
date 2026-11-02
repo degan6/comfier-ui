@@ -38,7 +38,7 @@
   ],
   "$defs": {
     "engines": {
-      "description": "Execution engines this server runs, by name (comfyui, mflux, mlx_video). An agent that sends none runs comfyui only.",
+      "description": "Execution engines this server runs, by name (comfyui, mflux, mlx_video, mlx_music). An agent that sends none runs comfyui only.",
       "type": "object",
       "maxProperties": 16,
       "additionalProperties": {

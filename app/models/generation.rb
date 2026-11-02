@@ -45,6 +45,7 @@ class Generation < ApplicationRecord # rubocop:disable Metrics/ClassLength
   validates :prompt, :negative_prompt, :lyrics, length: { maximum: 10_000 }
   validate :input_image_present, on: :create
   validate :workflow_is_usable, on: :create
+  validate :music_recipe_is_valid, on: :create
 
   before_validation :resolve_parameters, on: :create
   before_validation :snapshot_workflow_name, on: :create
@@ -147,6 +148,15 @@ class Generation < ApplicationRecord # rubocop:disable Metrics/ClassLength
     return unless workflow&.uses?(:image)
 
     errors.add(:input_image, 'is required') unless input_image.attached?
+  end
+
+  def music_recipe_is_valid
+    return unless workflow&.engine == 'mlx_music'
+
+    recipe = WorkflowRenderer.render(workflow.graph, placeholder_values)
+    EngineRecipe.problems('mlx_music', recipe).each { errors.add(:base, "Music recipe #{it}") }
+  rescue WorkflowRenderer::MissingValue => e
+    errors.add(:base, e.message)
   end
 
   def workflow_is_usable

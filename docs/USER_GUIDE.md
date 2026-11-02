@@ -174,7 +174,7 @@ The key can also be pasted into the **Comfier** tab in ComfyUI's sidebar, which 
 connected and, if not, why.
 
 **On an Apple Silicon Mac** you don't need ComfyUI: the setup page also shows three commands that install the
-agent as a service with **mflux** (images) and **mlx-video** (video), which run natively on the Mac. They can run
+agent as a service with **mflux** (images), **MLX music** (audio), and **mlx-video** (video), which run natively on the Mac. They can run
 alongside ComfyUI too.
 `comfier-agent doctor` checks the setup and `comfier-agent logs -f` shows what it's doing.
 
@@ -294,19 +294,30 @@ image style that works from a prompt alone) and edit the prompt it sends. `{{pro
 `{{lyrics}}` its lyrics, with section markers such as `[verse]` removed and long lyrics shortened; text between
 `{{#lyrics}}` and `{{/lyrics}}` is left out for tracks without lyrics.
 
-#### mflux and MLX video workflows (Macs)
+#### Native image, music and video workflows (Macs)
 
-A workflow can **Run on** mflux (images) or MLX video instead of ComfyUI. These run natively on Apple Silicon Macs
+A workflow can **Run on** mflux (images), MLX music (audio), or MLX video instead of ComfyUI. These run natively on Apple Silicon Macs
 whose agent has the engine. There's no node graph; the workflow is a **recipe**: the command to run and its options,
 as JSON, with the same placeholders.
 
-1. In **Add workflow**, set **Runs on** to **mflux** or **MLX video**.
+1. In **Add workflow**, set **Runs on** to **mflux**, **MLX music**, or **MLX video**.
 2. Pick a preset under **Start from a preset** (for example Z-Image Turbo or FLUX.1 dev), then adjust it. Keys are
-   the command's flags in snake_case: `"image_strength": 0.4` is `--image-strength 0.4`, `true` is a bare flag.
+   the command's flags in snake_case for image/video recipes: `"image_strength": 0.4` is `--image-strength 0.4`,
+   `true` is a bare flag. Music recipes use the model-specific options described below.
 3. Set `min_memory_gb` to what the model needs. Macs with less memory aren't offered the style.
 4. Save. The style only goes to Macs that run the engine. A Mac that hasn't downloaded the model yet still takes the
    job, but the first run is slower while it downloads. To avoid that, open the Mac's page under **Servers** and
    choose **Download** next to the style (or **Download all**); progress shows under **Downloads**.
+
+For music, install the agent with the `[music]` or `[mac]` extra and pick a **YuE2 8-bit** or
+**MiniMax Music 3** instrumental/vocal preset. The memory estimates are 32 GB for YuE2 and 96 GB for MiniMax;
+long tracks can need more. On the **Audio** page, choose the style, describe the music, and provide lyrics
+when using a vocal preset. Instrumental presets guide the model to omit vocals, without guaranteeing it.
+Prompts must have 3–2000 characters after trimming whitespace and lyrics at most 6000; text added in the
+recipe counts toward these limits. The current Length control allows 1–30 seconds. Both models return stereo
+WAV audio. Cancel stops the worker and releases its model memory. MiniMax's preset fixes steps at 30; YuE2
+uses the Quality setting. See the [agent setup guide](../comfyui/comfier_agent/README.md#native-music-on-apple-silicon-yue2-and-minimax-music-3)
+for installation commands and recipe options.
 
 To remove a workflow, open it (or use the **⋯** menu on the list) and choose **Delete**. Past results stay; they just
 lose the link back to this style.
@@ -366,7 +377,7 @@ On an agent server's page:
 
 - Each workflow's **⋯** menu has **Reload models** and **Delete models** for that workflow's files. The **⋯** menu
   next to **Re-scan** does the same for every workflow on the server.
-- Under **Installed**, tick files (mflux and MLX video models are listed by name), then choose **Reload selected**,
+- Under **Installed**, tick files (native MLX models are listed by name), then choose **Reload selected**,
   or **Delete selected** from the **⋯** menu.
 - **Cancel all** under **Downloads** stops every download that's running or waiting.
 

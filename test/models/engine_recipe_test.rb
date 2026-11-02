@@ -109,6 +109,32 @@ class EngineRecipeTest < ActiveSupport::TestCase
                     '"model_subdir" needs a Wan "model_repo" (mlx_video.wan_2.*)'
   end
 
+  test 'music recipes restrict models and model-specific options' do
+    recipe = { 'command' => 'mlx_music.generate', 'model' => 'minimax-music3', 'prompt' => '{{prompt}}',
+               'duration' => '{{duration}}', 'steps' => 30 }
+
+    assert_empty EngineRecipe.problems('mlx_music', recipe)
+    assert_equal ['minimax-music3'], EngineRecipe.models(recipe, 'mlx_music')
+    assert_match(/must be yue2 or minimax/, EngineRecipe.problems('mlx_music', recipe.merge('model' => 'x')).join)
+    assert_match(/steps/, EngineRecipe.problems('mlx_music', recipe.merge('steps' => 31)).join)
+    assert_match(/YuE2-only/, EngineRecipe.problems('mlx_music', recipe.merge('planning' => 'full')).join)
+    assert_match(/unknown music options/, EngineRecipe.problems('mlx_music', recipe.merge('model_dir' => '/tmp')).join)
+    assert_empty EngineRecipe.problems('mlx_music', recipe.merge('model' => 'yue2', 'planning' => 'full'))
+  end
+
+  test 'music recipes validate literal text while allowing placeholders' do
+    recipe = { 'command' => 'mlx_music.generate', 'model' => 'yue2', 'prompt' => '{{prompt}}' }
+
+    [123, [], nil, 'x' * 6001].each do |lyrics|
+      assert_match(/lyrics/, EngineRecipe.problems('mlx_music', recipe.merge('lyrics' => lyrics)).join)
+    end
+    ['ab', 'x' * 2001].each do |prompt|
+      assert_match(/prompt/, EngineRecipe.problems('mlx_music', recipe.merge('prompt' => prompt)).join)
+    end
+    assert_empty EngineRecipe.problems('mlx_music', recipe.merge('prompt' => 'x' * 2000, 'lyrics' => 'x' * 6000))
+    assert_empty EngineRecipe.problems('mlx_music', recipe.merge('lyrics' => '{{lyrics}}'))
+  end
+
   test 'every preset is a valid workflow for its page' do
     EnginePreset::ALL.each do |preset|
       workflow = Workflow.new(name: preset.label, kind: preset.kind, engine: preset.engine,

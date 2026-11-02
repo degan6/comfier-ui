@@ -29,8 +29,11 @@ mflux = ["mflux>=0.22", "pillow<13"]
 # Blaizzy/mlx-video#52, which adds LTX-2.5 (with its Gemma 4 text encoder) and keeps LTX-2.3 and Wan; upstream
 # hasn't merged it yet. Move back to Blaizzy/mlx-video once it lands.
 video = ["mlx-video @ git+https://github.com/kiarina/mlx-video.git@cbb2c10f2a25305b0bf09169ab6b865ab86e3332"]
-# Everything a Mac needs: mflux, mlx-video and 3D previews.
+# Native music, using the same tested MLX runtime as the standalone workers.
+music = ["mlx==0.32.2", "tiktoken==0.14.0", "mlx-audio @ git+https://github.com/Blaizzy/mlx-audio.git@784b29e2691a93ca7483147d86f61859dfaa6296"]
+# Everything a Mac needs: native images, video, music and 3D previews.
 mac = [
+    "mlx==0.32.2", "tiktoken==0.14.0", "mlx-audio @ git+https://github.com/Blaizzy/mlx-audio.git@784b29e2691a93ca7483147d86f61859dfaa6296",
     "mflux>=0.22",
     "mlx-video @ git+https://github.com/kiarina/mlx-video.git@cbb2c10f2a25305b0bf09169ab6b865ab86e3332",
     "numpy>=1.24", "pillow>=10.0,<13", "trimesh>=4.0",
