@@ -14,16 +14,6 @@ class PersonalApiTokenTest < ActiveSupport::TestCase
     assert_not_equal token.token_digest, other.token_digest
   end
 
-  test 'revoked tokens stop authenticating' do
-    token, secret = PersonalApiToken.issue!(user: users(:alice), name: 'My script')
-    token.revoke!
-    revoked_at = token.revoked_at
-    token.revoke!
-
-    assert_nil PersonalApiToken.authenticate(secret)
-    assert_equal revoked_at, token.revoked_at
-  end
-
   test 'rejects malformed secrets and server agent keys' do
     [nil, '', 'cmf_12345', "cmfu_#{'a' * 64}", 'cmfu_short', 123].each do |secret|
       assert_nil PersonalApiToken.authenticate(secret)

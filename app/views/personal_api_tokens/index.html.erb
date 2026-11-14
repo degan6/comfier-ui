@@ -30,19 +30,16 @@
 <% if @tokens.any? %>
   <div class="table-responsive">
     <table class="table text-13 align-middle">
-      <thead><tr><th>Name</th><th>Token</th><th>Last used</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Token</th><th>Last used</th><th></th></tr></thead>
       <tbody>
         <% @tokens.each do |token| %>
           <tr>
             <td><%= token.name %></td>
             <td><code><%= token.display %></code></td>
             <td><%= token.last_used_at ? friendly_time(token.last_used_at) : 'Never' %></td>
-            <td><%= token.revoked? ? 'Revoked' : 'Active' %></td>
             <td>
-              <% unless token.revoked? %>
-                <%= button_to 'Revoke', personal_api_token_path(token), method: :delete,
-                              class: 'btn btn-outline-danger btn-sm' %>
-              <% end %>
+              <%= button_to 'Delete', personal_api_token_path(token), method: :delete,
+                            class: 'btn btn-outline-danger btn-sm' %>
             </td>
           </tr>
         <% end %>
@@ -50,5 +47,5 @@
     </table>
   </div>
 <% else %>
-  <p class="text-13 text-secondary">You haven't created any API tokens yet.</p>
+  <p class="text-13 text-secondary">You have no API tokens.</p>
 <% end %>

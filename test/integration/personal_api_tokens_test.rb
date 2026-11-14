@@ -37,8 +37,8 @@ class PersonalApiTokensTest < ActionDispatch::IntegrationTest
     assert_select '.alert-danger', text: /Name can't be blank/
   end
 
-  test 'lists and revokes only the current users tokens' do
-    own, secret = PersonalApiToken.issue!(user: users(:alice), name: 'Own laptop')
+  test 'lists only the current users tokens and rejects deleting another users token' do
+    PersonalApiToken.issue!(user: users(:alice), name: 'Own laptop')
     other, = PersonalApiToken.issue!(user: users(:bob), name: 'Other laptop')
     get personal_api_tokens_path
 
@@ -48,13 +48,24 @@ class PersonalApiTokensTest < ActionDispatch::IntegrationTest
     delete personal_api_token_path(other)
 
     assert_response :not_found
-    assert_not_predicate other.reload, :revoked?
+    assert PersonalApiToken.exists?(other.id)
+  end
 
-    delete personal_api_token_path(own)
+  test 'deletes a token and removes it from the list' do
+    own, secret = PersonalApiToken.issue!(user: users(:alice), name: 'Own laptop')
+
+    assert_difference('PersonalApiToken.count', -1) do
+      delete personal_api_token_path(own)
+    end
 
     assert_redirected_to personal_api_tokens_path
-    assert_predicate own.reload, :revoked?
+    assert_not PersonalApiToken.exists?(own.id)
     assert_nil PersonalApiToken.authenticate(secret)
+
+    follow_redirect!
+
+    assert_select 'td', text: 'Own laptop', count: 0
+    assert_select 'p', text: 'You have no API tokens.'
   end
 
   test 'requires login to create a token' do

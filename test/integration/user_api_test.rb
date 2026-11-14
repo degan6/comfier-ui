@@ -20,8 +20,8 @@ class UserApiTest < ActionDispatch::IntegrationTest
     assert_equal 'no-store', response.headers['Cache-Control']
   end
 
-  test 'revoked tokens stop working immediately' do
-    @token.revoke!
+  test 'deleted tokens stop working immediately' do
+    @token.destroy!
     get '/api/v1/workflows', headers: @headers
 
     assert_response :unauthorized

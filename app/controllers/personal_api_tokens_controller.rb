@@ -21,8 +21,8 @@ class PersonalApiTokensController < ApplicationController
   end
 
   def destroy
-    current_user.personal_api_tokens.find(params[:id]).revoke!
-    redirect_to personal_api_tokens_path, notice: 'API token revoked.', status: :see_other
+    current_user.personal_api_tokens.find(params[:id]).destroy!
+    redirect_to personal_api_tokens_path, notice: 'API token deleted.', status: :see_other
   end
 
   private

@@ -14,7 +14,8 @@ it is created; Comfier shows the full token only once and stores only its digest
 Authorization: Bearer cmfu_…
 ```
 
-Revoke a token from the same Settings page when it is no longer needed. Use HTTPS outside local
+Delete a token from the same Settings page when it is no longer needed. Deletion immediately
+invalidates the token and removes it from your list. Use HTTPS outside local
 development. User tokens cannot authenticate generation servers, and server keys cannot authenticate
 this API. Browser session cookies are not API authentication.
 
@@ -199,7 +200,7 @@ use the HTTP status and error code rather than matching human-readable message t
 | HTTP status | Code | Meaning |
 | --- | --- | --- |
 | 400 | `invalid_request` | Malformed request or invalid request structure. |
-| 401 | `invalid_token` | Missing, invalid, or revoked personal token. |
+| 401 | `invalid_token` | Missing, invalid, or deleted personal token. |
 | 403 | `privacy_acceptance_required` | Accept the current notice in the web interface. |
 | 404 | `not_found` | Resource does not exist or does not belong to this user. |
 | 409 | `idempotency_conflict` | Idempotency key was already used for a different request. |
