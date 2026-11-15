@@ -1,0 +1,17 @@
+<% content_for :title, 'API documentation' %>
+
+<div class="api-documentation" data-controller="clipboard">
+  <h1 class="h-page-title">API documentation</h1>
+  <p class="text-13 text-secondary">Use the API from scripts or give these instructions to your AI assistant.
+    Examples below use this Comfier installation's URL. Create a token under
+    <%= link_to 'API tokens', personal_api_tokens_path %>.</p>
+  <div class="d-flex flex-wrap gap-2 align-items-center mb-4">
+    <button type="button" class="btn btn-outline-primary btn-sm" data-action="clipboard#copy">
+      <i class="bi bi-clipboard me-1" aria-hidden="true" data-clipboard-target="icon"></i>Copy for LLM
+    </button>
+    <%= link_to 'Markdown version', api_documentation_path(format: :text), class: 'btn btn-outline-secondary btn-sm' %>
+    <span class="text-13" role="status" data-clipboard-target="status"></span>
+  </div>
+  <textarea hidden readonly data-clipboard-target="source" aria-label="API documentation in Markdown"><%= @markdown %></textarea>
+  <article><%= api_documentation_html(@markdown.delete_prefix("# User API\n")) %></article>
+</div>

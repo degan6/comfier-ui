@@ -35,7 +35,8 @@ module ApplicationHelper
   end
 
   def settings_nav_item(label, path, icon:, count: nil, attention: false)
-    classes = ['settings-nav-item', { active: current_page?(path) || request.path.start_with?("#{path}/"), attention: }]
+    active = current_page?(path) || (path != settings_path && request.path.start_with?("#{path}/"))
+    classes = ['settings-nav-item', { active:, attention: }]
     link_to path, class: classes do
       safe_join([
         tag.i(class: "bi #{icon}", aria: { hidden: true }),
