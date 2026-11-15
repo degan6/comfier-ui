@@ -76,6 +76,15 @@ tr.row-link { cursor: pointer; }
 .settings-nav-item.active { background: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); }
 .settings-nav-item.attention { color: var(--bs-warning-text-emphasis); }
 .settings-form { max-width: 36rem; }
+.api-documentation { max-width: 70rem; min-width: 0; }
+.api-documentation article { line-height: 1.65; overflow-wrap: anywhere; }
+.api-documentation h2 { font-size: 1.25rem; margin: 2rem 0 1rem; }
+.api-documentation h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+.api-documentation pre {
+  background: var(--bs-tertiary-bg); border-radius: 0.375rem; padding: 1rem; overflow-x: auto;
+}
+.api-documentation table { display: block; overflow-x: auto; margin-bottom: 1rem; font-size: 0.875rem; }
+.api-documentation th, .api-documentation td { border-bottom: 1px solid var(--bs-border-color); padding: 0.5rem; }
 .settings-form .form-label, .settings-form-wide .form-label { font-size: 13px; font-weight: 500; }
 
 /* Panels and cards */
