@@ -86,7 +86,8 @@ module Api
           kind: generation.kind, status: generation.status, prompt: generation.prompt,
           negative_prompt: generation.negative_prompt, parameters: generation.parameters,
           progress: { phase: generation.agent_phase, fraction: generation.agent_progress },
-          error: generation.error_message, created_at: generation.created_at, completed_at: generation.completed_at,
+          error: generation.error_message, cancelled: generation.cancelled?,
+          created_at: generation.created_at, completed_at: generation.completed_at,
           outputs: generation.outputs.map { |attachment| output_json(generation, attachment) }
         }
       end

@@ -43,7 +43,7 @@ All paths below are relative to your Comfier URL.
 Generation submission accepts JSON or multipart form data under a `generation` object. File uploads
 use multipart form data. Submission returns immediately; poll the generation URL until `status` is
 `succeeded` or `failed`. Cancellation uses the existing generation lifecycle and can finish asynchronously. A cancelled generation
-finishes with `status: "failed"` and `error: "Cancelled"`. Backend availability is checked by the
+finishes with `status: "failed"` and `cancelled: true`. Backend availability is checked by the
 normal scheduler after submission; an accepted generation can subsequently fail if no server can run it.
 
 ## How to use the API
@@ -93,7 +93,7 @@ curl --fail-with-body 'https://comfier.example.com/api/v1/generations/42' \
 Repeat this request every few seconds while `status` is `queued` or `running`. When it becomes
 `succeeded`, the `outputs` array contains the available files. When it becomes `failed`, read
 `error` for the reason and stop polling. A cancelled generation also finishes as `failed`, with
-`error` set to `Cancelled`.
+`cancelled` set to `true`; check that flag rather than the `error` text.
 
 ### 4. Download an output
 
@@ -137,7 +137,8 @@ curl --fail-with-body --request POST 'https://comfier.example.com/api/v1/generat
   -H 'Authorization: Bearer YOUR_TOKEN'
 ```
 
-Cancellation can take time. Keep checking the generation until it reaches a terminal status.
+Cancellation can take time. Keep checking the generation until it reaches a terminal status;
+a cancelled generation then has `status: "failed"` and `cancelled: true`.
 If it has already finished, cancellation returns `409 not_cancellable`.
 
 ## Generation inputs
@@ -162,7 +163,8 @@ If it has already finished, cancellation returns `409 not_cancellable`.
 ```
 
 A file input has `type: "file"`; numeric inputs describe their `minimum` and `maximum`.
-Fields appear only when used by the workflow.
+Fields appear only when used by the workflow. `kind` is the type of output the workflow creates:
+`image`, `video`, `audio`, or `model_3d` (a 3D model).
 
 Only send controls supported by the chosen workflow. The workflow response describes those inputs;
 `workflow_id` always selects the workflow, which determines the output kind. Raw workflow graphs,
@@ -173,7 +175,7 @@ server credentials, output attachments, status, and ownership cannot be supplied
 | `workflow_id` | ID from the workflow list; required. |
 | `prompt` | Prompt text; required when the workflow uses it, up to 10,000 characters. |
 | `negative_prompt` | Optional things to avoid, up to 10,000 characters. |
-| `input_image` | Multipart file for workflows with an image input; required for those workflows. |
+| `input_image` | Multipart image file for workflows with an image input; required for those workflows. See **Reference images** below. |
 | `seed` | Optional integer from 0 through 4294967295; omitted means random. |
 | `aspect_ratio` | `1:1`, `4:3`, `3:4`, `16:9`, or `9:16`; defaults to your preferred shape. |
 | `duration` | Duration in seconds, from 1 through 30. |
@@ -188,19 +190,34 @@ controls. The returned `parameters` object contains the resolved values. As in t
 numeric controls are clamped to their supported ranges and unrecognized choice values fall back
 to defaults. The API's `denoise` uses a fraction (for example `0.6`), rather than the web form's percentage.
 
+### Reference images
+
+Send `input_image` as a still image. PNG, JPEG, and WebP are the safe choices. Comfier stores the
+upload as sent and does not check its type, convert it, or resize it; the generation server reads it
+when the job runs. A file the server cannot read as an image is therefore accepted at submission
+(`201`), and the generation then normally finishes with `status: "failed"` and a reason in `error`.
+
+Comfier sets no upload size limit of its own. The installation's reverse proxy may reject large
+request bodies, usually with `413`, before the request reaches the API. Keep reference images to a
+few megabytes.
+
 ## Listing and polling
 
-`GET /api/v1/generations?page=1&per_page=24` returns a `generations` array and
+`GET /api/v1/generations?page=1&per_page=25` returns a `generations` array and
 `pagination: {page, per_page, next_page}`. Pages start at 1; `per_page` defaults to 25 and is capped at 100.
 A `null` `next_page` means there are no more results. Invalid or nonpositive pagination values return `400`.
 
 Individual responses use a `generation` object. It includes the ID, workflow ID and name, kind,
 status, prompt, negative prompt, resolved parameters, creation and completion timestamps, error,
-and an `outputs` array. Each output includes `id`, `filename`, `content_type`, `byte_size`, and
-`download_url`. Downloads require the same Bearer token; these URLs do not publish the output.
+a `cancelled` flag, and an `outputs` array. `kind` is `image`, `video`, `audio`, or `model_3d`.
+`cancelled` is `true` only for a generation that was cancelled, and `false` otherwise. Each output
+includes `id`, `filename`, `content_type`, `byte_size`, and `download_url`. Downloads require the same Bearer token; these URLs do not publish the output.
 
 The coarse `status` is `queued`, `running`, `succeeded`, or `failed`. `progress` contains `phase`
-and `fraction`; progress may be unavailable for some servers or phases. Poll every few seconds
+and `fraction`. `fraction` is a number from `0` (not started) through `1` (complete), so multiply by
+100 for a percentage; `phase` is a short label for the current step, or `null` when none is reported.
+Some servers and phases report no progress, in which case `fraction` stays at `0` until the generation
+finishes. Use `status`, not `fraction`, to decide when to stop polling. Poll every few seconds
 until a terminal status is returned. Output URLs appear once files have been saved.
 
 ## Retrying submissions
@@ -223,7 +240,7 @@ Without a key, each successful POST creates a new generation.
 JSON errors use this envelope:
 
 ```json
-{"error":{"code":"validation_failed","message":"Generation is invalid","details":{}}}
+{"error":{"code":"validation_failed","message":"Generation is invalid.","details":{}}}
 ```
 
 The `details` member, when present, supplies field-specific validation information. Clients should

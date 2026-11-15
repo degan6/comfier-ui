@@ -156,6 +156,7 @@ class UserApiTest < ActionDispatch::IntegrationTest
 
     assert_equal 'failed', body['status']
     assert_equal generation.error_message, body['error']
+    assert_not body.fetch('cancelled')
     assert_equal({ 'phase' => 'denoising', 'fraction' => 0.5 }, body['progress'])
   end
 
@@ -178,6 +179,7 @@ class UserApiTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal Generation::CANCELLED_MESSAGE, generation.reload.error_message
     assert_equal 'failed', response.parsed_body.dig('generation', 'status')
+    assert response.parsed_body.dig('generation', 'cancelled')
   end
 
   test 'finished generations cannot be cancelled' do
