@@ -14,6 +14,7 @@ class PersonalApiTokensController < ApplicationController
 
   def create
     @token, @new_secret = PersonalApiToken.issue!(user: current_user, name: params.require(:personal_api_token)[:name])
+    audit(:api_token_created, "Created API token #{@token.name} (#{@token.display})")
     render :index, status: :created
   rescue ActiveRecord::RecordInvalid => e
     @token = e.record
@@ -21,11 +22,17 @@ class PersonalApiTokensController < ApplicationController
   end
 
   def destroy
-    current_user.personal_api_tokens.find(params[:id]).destroy!
+    token = current_user.personal_api_tokens.find(params[:id])
+    token.destroy!
+    audit(:api_token_deleted, "Deleted API token #{token.name} (#{token.display})")
     redirect_to personal_api_tokens_path, notice: 'API token deleted.', status: :see_other
   end
 
   private
+
+  def audit(kind, message)
+    ActivityLog.record(kind:, message:, user: current_user, request:)
+  end
 
   def load_tokens
     @tokens = current_user.personal_api_tokens.order(created_at: :desc, id: :desc)

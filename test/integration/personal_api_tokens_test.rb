@@ -21,6 +21,7 @@ class PersonalApiTokensTest < ActionDispatch::IntegrationTest
 
     assert_equal users(:alice), token.user
     assert_equal 'Laptop', token.name
+    assert_equal "Created API token Laptop (#{token.display})", ActivityLog.api_token_created.last.message
 
     get personal_api_tokens_path
 
@@ -61,6 +62,7 @@ class PersonalApiTokensTest < ActionDispatch::IntegrationTest
     assert_redirected_to personal_api_tokens_path
     assert_not PersonalApiToken.exists?(own.id)
     assert_nil PersonalApiToken.authenticate(secret)
+    assert_equal "Deleted API token Own laptop (#{own.display})", ActivityLog.api_token_deleted.last.message
 
     follow_redirect!
 

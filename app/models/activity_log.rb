@@ -29,6 +29,8 @@ class ActivityLog < ApplicationRecord
     model_delete_failed: 'model_delete_failed',
     source_credential_saved: 'source_credential_saved',
     source_credential_deleted: 'source_credential_deleted',
+    api_token_created: 'api_token_created',
+    api_token_deleted: 'api_token_deleted',
     media_failed: 'media_failed'
   }, validate: true
 
