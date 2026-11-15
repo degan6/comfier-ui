@@ -122,7 +122,7 @@ def test_complete_snapshot_checks_every_weight_and_real_tokenizer(tmp_path):
     assert not worker.complete_snapshot(tmp_path)
 
 
-def stub_runtime(monkeypatch, tmp_path, audio, rate=44100):
+def stub_runtime(monkeypatch, tmp_path, audio, rate=44100, controls=None):
     mx = types.ModuleType('mlx.core')
     mx.get_peak_memory = lambda: 123
     package = types.ModuleType('mlx')
@@ -131,9 +131,20 @@ def stub_runtime(monkeypatch, tmp_path, audio, rate=44100):
     monkeypatch.setitem(sys.modules, 'mlx.core', mx)
     music = types.ModuleType('mlx_audio.music')
     calls = []
+    ar = types.ModuleType('mlx_audio.music.models.minimax_music3.ar')
+    ar.AR_CFG_SCALE, ar.AR_CFG_TOP_K, ar.AR_SAMPLING_TOP_K = 1.5, 50, 50
+    pipeline = types.ModuleType('mlx_audio.music.models.minimax_music3.minimax_music3')
+    pipeline.DIT_CFG_SCALE = 1.7
+    monkeypatch.setitem(sys.modules, ar.__name__, ar)
+    monkeypatch.setitem(sys.modules, pipeline.__name__, pipeline)
+    expected = {'semantic_guidance': 1.5, 'acoustic_guidance': 1.7, 'top_k': 50, **(controls or {})}
 
     class Model:
         def generate(self, **kwargs):
+            # These are the module globals read by the pinned runtime's AR and flow stages.
+            assert ar.AR_CFG_SCALE == expected['semantic_guidance']
+            assert ar.AR_CFG_TOP_K == ar.AR_SAMPLING_TOP_K == expected['top_k']
+            assert pipeline.DIT_CFG_SCALE == expected['acoustic_guidance']
             calls.append(kwargs)
             yield types.SimpleNamespace(audio=audio, sample_rate=rate)
 
@@ -266,3 +277,50 @@ def test_incomplete_offline_snapshot_does_not_attempt_network(tmp_path, monkeypa
     monkeypatch.setenv('HF_HUB_OFFLINE', '1')
     with pytest.raises(ValueError, match='incomplete'):
         worker.model_path()
+
+
+@pytest.mark.parametrize('patch', [
+    {'semantic_guidance': -0.1}, {'semantic_guidance': 10.1}, {'semantic_guidance': True},
+    {'semantic_guidance': float('nan')}, {'acoustic_guidance': float('inf')},
+    {'acoustic_guidance': '1.7'}, {'acoustic_guidance': False}, {'acoustic_guidance': -1},
+    {'top_k': 0}, {'top_k': 16385}, {'top_k': 50.0}, {'top_k': True},
+])
+def test_invalid_literal_controls_fail_before_launch(tmp_path, patch):
+    with pytest.raises(JobError):
+        make_engine(tmp_path).validate({**RECIPE, **patch})
+
+
+@pytest.mark.parametrize('controls', [
+    {}, {'semantic_guidance': 0, 'acoustic_guidance': 10, 'top_k': 1},
+    {'semantic_guidance': 10, 'acoustic_guidance': 0, 'top_k': 16384},
+    {'semantic_guidance': 2.3, 'acoustic_guidance': 1.2, 'top_k': 73},
+])
+def test_recipe_controls_reach_both_stages_and_are_saved(tmp_path, monkeypatch, controls):
+    calls, _writes = stub_runtime(monkeypatch, tmp_path, np.zeros((100, 2)), controls=controls)
+    worker.generate({**RECIPE, **controls}, tmp_path / 'controlled.wav')
+    # generate accepts **kwargs but ignores unknown ones: control values must not be passed that way.
+    assert set(calls[0]) == {'text', 'lyrics', 'duration', 'steps', 'seed'}
+    metrics = json.loads((tmp_path / 'controlled.metrics.json').read_text())
+    expected = {'semantic_guidance': 1.5, 'acoustic_guidance': 1.7, 'top_k': 50, **controls}
+    assert {key: metrics[key] for key in expected} == expected
+    ar = sys.modules['mlx_audio.music.models.minimax_music3.ar']
+    pipeline = sys.modules['mlx_audio.music.models.minimax_music3.minimax_music3']
+    assert (ar.AR_CFG_SCALE, ar.AR_CFG_TOP_K, ar.AR_SAMPLING_TOP_K, pipeline.DIT_CFG_SCALE) == (1.5, 50, 50, 1.7)
+
+
+def test_controls_restore_runtime_globals_after_generation_failure(tmp_path, monkeypatch):
+    controls = {'semantic_guidance': 2.3, 'acoustic_guidance': 1.2, 'top_k': 73}
+    stub_runtime(monkeypatch, tmp_path, np.full((10, 2), np.nan), controls=controls)
+    ar = sys.modules['mlx_audio.music.models.minimax_music3.ar']
+    pipeline = sys.modules['mlx_audio.music.models.minimax_music3.minimax_music3']
+    ar.AR_CFG_SCALE, ar.AR_CFG_TOP_K, ar.AR_SAMPLING_TOP_K, pipeline.DIT_CFG_SCALE = 3, 80, 90, 4
+    class FailedModel:
+        def generate(self, **_kwargs):
+            assert ar.AR_CFG_SCALE == controls['semantic_guidance']
+            assert pipeline.DIT_CFG_SCALE == controls['acoustic_guidance']
+            raise ValueError('synthesis failed')
+
+    monkeypatch.setattr(sys.modules['mlx_audio.music'], 'load', lambda _path: FailedModel())
+    with pytest.raises(ValueError, match='synthesis failed'):
+        worker.generate({**RECIPE, **controls}, tmp_path / 'invalid.wav')
+    assert (ar.AR_CFG_SCALE, ar.AR_CFG_TOP_K, ar.AR_SAMPLING_TOP_K, pipeline.DIT_CFG_SCALE) == (3, 80, 90, 4)

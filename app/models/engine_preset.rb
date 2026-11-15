@@ -43,7 +43,8 @@ class EnginePreset # rubocop:disable Metrics/ClassLength
   # admin can edit it up to 300. Base 20 steps makes Fast/Standard/Best 10/20/30, MiniMax's supported range.
   MINIMAX = {
     'command' => 'minimax-music3', 'model' => EngineRecipe::MINIMAX_MODEL, 'caption' => '{{prompt}}',
-    'duration' => 60, 'steps' => '{{steps}}', 'seed' => '{{seed}}', 'min_memory_gb' => 96
+    'duration' => 60, 'steps' => '{{steps}}', 'seed' => '{{seed}}', 'min_memory_gb' => 96,
+    'semantic_guidance' => 1.5, 'acoustic_guidance' => 1.7, 'top_k' => 50
   }.freeze
 
   ALL = [

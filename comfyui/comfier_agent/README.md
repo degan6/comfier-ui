@@ -299,6 +299,22 @@ peak MLX allocation. It is not a full-length memory guarantee. Admins can edit t
 at the maximum. Vocal recipes require lyrics; instrumentals condition on `[Instrumental]`, without guaranteeing
 that every output is vocal-free. Existing ComfyUI workflows are not converted automatically.
 
+MiniMax's sound controls have one source: literal numbers in the recipe JSON:
+
+```json
+"semantic_guidance": 1.5,
+"acoustic_guidance": 1.7,
+"top_k": 50
+```
+
+Semantic guidance controls the autoregressive musical tokens; acoustic guidance controls waveform synthesis.
+`top_k` controls token sampling in the semantic and residual codebooks (each stage clamps it to its vocabulary).
+Both guidance values accept 0–10; `top_k` accepts whole numbers from 1–16384. Omitted keys keep the defaults above.
+These keys do not accept placeholders such as `{{cfg}}`. Quality adjusts `{{steps}}` only, without scaling either
+guidance value or top-k. The unrelated Default guidance, Base resolution and Frame rate fields are hidden for
+MLX audio. Other engines keep their existing fields. The pinned runtime's controls are applied in each job's
+isolated process; the installed runtime and other applications are not modified.
+
 The worker pins `mlx-audio` commit `784b29e2691a93ca7483147d86f61859dfaa6296`, MLX 0.32.2, and
 `mlx-community/MiniMax-Music3-bf16` revision `83a5f2d365673689df5c8f36e21e108751fd92ea`. The model is about
 28.5 GB. Download it from the server's workflow list before a run, or let the first run download it. Inventory

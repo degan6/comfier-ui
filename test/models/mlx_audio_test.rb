@@ -19,7 +19,34 @@ class MlxAudioTest < ActiveSupport::TestCase
         assert_equal 2_211_510_127, recipe['seed']
         assert_equal(preset.end_with?('-vocals') ? "[Verse]\nExact words" : '[Instrumental]', recipe['lyrics'])
         assert_equal [EngineRecipe::MINIMAX_MODEL], workflow.recipe_models
+        assert_equal [1.5, 1.7, 50], recipe.values_at('semantic_guidance', 'acoustic_guidance', 'top_k')
       end
+    end
+  end
+
+  test 'JSON guidance is independent of quality and the hidden generic guidance field' do
+    workflow = engine_workflow!(preset: 'minimax-music3-vocals', name: 'Direct JSON controls')
+    workflow.update!(guidance: 29)
+
+    assert_not workflow.uses?(:cfg)
+    %w[fast best].each do |quality|
+      generation = users(:alice).generations.create!(workflow:, prompt: 'Piano duet', lyrics: '[Verse] Words',
+                                                     seed: 7, quality:, cfg_level: 'strict')
+      recipe = WorkflowRenderer.render(workflow.graph, generation.placeholder_values)
+
+      assert_equal [1.5, 1.7, 50], recipe.values_at('semantic_guidance', 'acoustic_guidance', 'top_k')
+      assert_nil generation.cfg
+    end
+  end
+
+  test 'audio controls accept literal JSON only and older recipes keep their defaults' do
+    recipe = EnginePreset.all.find { it.key == 'minimax-music3-vocals' }.recipe
+
+    assert_empty EngineRecipe.problems('mlx_audio', recipe.except(*EngineRecipe::MINIMAX_CONTROLS.keys))
+    [{ 'semantic_guidance' => '{{cfg}}' }, { 'acoustic_guidance' => '{{cfg}}' },
+     { 'semantic_guidance' => -0.1 }, { 'acoustic_guidance' => 11 },
+     { 'top_k' => 0 }, { 'top_k' => 16_385 }, { 'top_k' => 1.5 }, { 'top_k' => true }].each do |patch|
+      assert_not_empty EngineRecipe.problems('mlx_audio', recipe.merge(patch)), patch.inspect
     end
   end
 

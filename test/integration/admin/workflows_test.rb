@@ -405,6 +405,23 @@ module Admin
       assert_select 'select[name="workflow[engine]"] option[value="mlx_video"][data-kinds="video"]'
     end
 
+    test 'audio hides unrelated fields and explains literal JSON controls' do
+      get new_admin_workflow_path(engine: 'mlx_audio')
+
+      assert_response :success
+      %w[guidance base_resolution frame_rate].each do |field|
+        assert_select "[data-engine-form-target=\"nonAudio\"].d-none input[name=\"workflow[#{field}]\"]"
+      end
+      assert_select 'input[name="workflow[steps]"]'
+      assert_select '[data-engine-form-target="audio"]:not(.d-none)',
+                    /Set semantic_guidance, acoustic_guidance and top_k directly in JSON/
+
+      get new_admin_workflow_path(engine: 'mlx_video')
+
+      assert_select '[data-engine-form-target="nonAudio"].d-none', count: 0
+      assert_select '[data-engine-form-target="audio"].d-none'
+    end
+
     test 'an engine workflow that no longer passes its checks is flagged in the list' do
       video = Workflow.new(name: 'Bad LTX', kind: 'video', engine: 'mlx_video',
                            graph: { 'command' => 'mlx_video.ltx_2.generate', 'model' => 'z-image-turbo' })

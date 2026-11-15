@@ -1,10 +1,10 @@
 import { Controller } from "@hotwired/stimulus"
 
-// The admin workflow form: ComfyUI workflows take exports and a graph; mflux and MLX video workflows
+// The admin workflow form: ComfyUI workflows take exports and a graph; native workflows
 // take a recipe, which a preset can fill in. The preset list only ever holds the chosen engine's presets
 // (rebuilt from a template: Safari ignores hidden on <option>).
 export default class extends Controller {
-  static targets = ["engine", "comfyui", "recipe", "preset", "presets", "json", "jsonLabel", "kind"]
+  static targets = ["engine", "comfyui", "recipe", "preset", "presets", "json", "jsonLabel", "kind", "audio", "nonAudio"]
 
   connect() {
     this.show()
@@ -22,6 +22,8 @@ export default class extends Controller {
     const comfyui = engine === "comfyui"
     this.comfyuiTargets.forEach((el) => el.classList.toggle("d-none", !comfyui))
     this.recipeTargets.forEach((el) => el.classList.toggle("d-none", comfyui))
+    this.audioTargets.forEach((el) => el.classList.toggle("d-none", engine !== "mlx_audio"))
+    this.nonAudioTargets.forEach((el) => el.classList.toggle("d-none", engine === "mlx_audio"))
     this.jsonLabelTarget.textContent = comfyui ? "Workflow (API format JSON)" : "Recipe (JSON)"
     if (this.hasPresetTarget && this.hasPresetsTarget) this.fillPresets(engine)
   }

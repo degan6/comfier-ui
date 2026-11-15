@@ -20,7 +20,8 @@ module EngineRecipe # rubocop:disable Metrics/ModuleLength
     'mlx_audio' => 'minimax-music3'
   }.freeze
   MINIMAX_MODEL = 'mlx-community/MiniMax-Music3-bf16'.freeze
-  MINIMAX_OPTIONS = %w[command model caption lyrics duration steps seed min_memory_gb].freeze
+  MINIMAX_CONTROLS = { 'semantic_guidance' => 0..10, 'acoustic_guidance' => 0..10, 'top_k' => 1..16_384 }.freeze
+  MINIMAX_OPTIONS = (%w[command model caption lyrics duration steps seed min_memory_gb] + MINIMAX_CONTROLS.keys).freeze
   KEY = /\A[a-z][a-z0-9_]*\z/
   # The Gemma 3 text encoder LTX-2.3 is known to work with in mlx-video.
   LTX_TEXT_ENCODER = 'mlx-community/gemma-3-12b-it-bf16'.freeze
@@ -66,7 +67,17 @@ module EngineRecipe # rubocop:disable Metrics/ModuleLength
     %w[caption lyrics].each do |key|
       found << "needs \"#{key}\"" unless recipe[key].is_a?(String) && recipe[key].present?
     end
-    found + minimax_numeric_problems(recipe)
+    found + minimax_numeric_problems(recipe) + minimax_control_problems(recipe)
+  end
+
+  # Audio guidance is literal JSON, independent of the generic guidance field and {{cfg}}.
+  def minimax_control_problems(recipe)
+    MINIMAX_CONTROLS.slice(*recipe.keys).filter_map do |key, range|
+      value = recipe[key]
+      next if value.is_a?(Numeric) && range.cover?(value) && (key != 'top_k' || value.is_a?(Integer))
+
+      "\"#{key}\" must be a #{key == 'top_k' ? 'whole number' : 'number'} in #{range}; use a literal JSON value"
+    end
   end
 
   def minimax_numeric_problems(recipe)
