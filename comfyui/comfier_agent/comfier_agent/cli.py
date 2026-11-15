@@ -33,7 +33,7 @@ from comfier_agent.config import comfier_home, default_config_path, load_config,
 
 LABEL = "com.comfier.agent"
 LOG_PATH = Path.home() / "Library" / "Logs" / "comfier-agent.log"
-SUBCOMMANDS = {"setup", "run", "service", "logs", "doctor", "pull", "lock", "version"}
+SUBCOMMANDS = {"setup", "install", "run", "service", "logs", "doctor", "pull", "lock", "version"}
 
 
 def plist_path() -> Path:
@@ -68,6 +68,10 @@ def build_parser() -> argparse.ArgumentParser:
     setup.add_argument("--yes", "-y", action="store_true", help="don't ask; use flags and defaults")
     setup.set_defaults(func=cmd_setup)
 
+    install = sub.add_parser("install", help="install an optional engine runtime")
+    install.add_argument("engine", choices=["audio"], help="MiniMax music on Apple Silicon")
+    install.set_defaults(func=cmd_install)
+
     service = sub.add_parser("service", help="manage the launchd service (macOS)")
     service.add_argument("action", choices=["install", "uninstall", "start", "stop", "restart", "status"])
     service.set_defaults(func=cmd_service)
@@ -95,6 +99,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 # --- run ---------------------------------------------------------------------------------------------
+
+def cmd_install(args) -> int:
+    from comfier_agent.audio_install import install_audio
+
+    return install_audio()
+
 
 def cmd_run(args) -> int:
     from comfier_agent.runtime import run_agent

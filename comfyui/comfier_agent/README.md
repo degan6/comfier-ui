@@ -277,19 +277,21 @@ docker compose -f docker-compose.test.yml run --rm e2e
 ## MiniMax Music 3 on Apple Silicon
 
 The `mlx_audio` engine runs MiniMax Music 3 through the same BF16 MLX pipeline as YuE Studio. It does not need
-ComfyUI. Install the audio runtime in its own Python 3.12 environment so its native dependencies do not change
-mflux, mlx-video or ComfyUI:
+ComfyUI. After installing or upgrading the main agent, enable music with:
 
 ```sh
-uv venv --python 3.12 ~/.comfier/audio
-uv pip install --python ~/.comfier/audio/bin/python "comfier-agent[audio] @ git+https://github.com/romkey/comfier-ui.git#subdirectory=comfyui/comfier_agent"
+comfier-agent install audio
 ```
 
-Upgrade the main agent too, then add `mlx_audio_python` to `~/.comfier/agent.json`, using that environment's absolute
-Python path (for example `/Users/you/.comfier/audio/bin/python`). Include `mlx_audio` in `engines` if you set an explicit
-engine list. Without an explicit list, configuring an existing audio interpreter enables discovery automatically.
-`comfier-agent doctor` checks that interpreter. Restart the agent service after changing its configuration.
-Alternatively a standalone audio-only agent can be installed with the `[audio]` extra and use its own Python.
+This creates an isolated Python 3.12 runtime, installs the pinned dependencies, verifies MiniMax support,
+and saves its interpreter path. It preserves your server key and other engines, adding `mlx_audio` to an
+explicit engine list. It waits for the shared GPU lock before changing the runtime. Repeating the command
+reuses the environment. No manual JSON changes are needed.
+
+When the agent is idle, run `comfier-agent service restart` to apply the configuration. Foreground agents
+can be stopped and started again with `comfier-agent run`. Installation does not restart a running agent
+or download model weights. `comfier-agent doctor` checks the configured interpreter.
+Advanced installations can still set `mlx_audio_python` themselves or use the `[audio]` extra.
 
 In **Settings → Workflows**, choose **MLX audio** and the **MiniMax Music 3 vocals** or **instrumental** preset.
 These use a fixed 60-second maximum, base 20 steps (Fast/Standard/Best = 10/20/30), and a 96 GB memory requirement.
