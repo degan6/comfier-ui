@@ -1,4 +1,4 @@
-"""Execution engines: ComfyUI, and the native Apple Silicon tools mflux and mlx-video."""
+"""Execution engines: ComfyUI, and the native Apple Silicon tools mflux, mlx-video and mlx-audio."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ import logging
 
 LOG = logging.getLogger("comfier_agent")
 
-KNOWN = ("comfyui", "mflux", "mlx_video")
+KNOWN = ("comfyui", "mflux", "mlx_video", "mlx_audio")
 # The Python package each MLX engine needs.
-MLX_PACKAGES = {"mflux": "mflux", "mlx_video": "mlx_video"}
+MLX_PACKAGES = {"mflux": "mflux", "mlx_video": "mlx_video", "mlx_audio": "mlx_audio"}
 
 
 def installed(package: str) -> bool:
@@ -44,6 +44,10 @@ def build_engines(config, comfy) -> dict:
             from comfier_agent.engines.mlx_video import MlxVideoEngine
 
             engines[name] = MlxVideoEngine(config)
+        elif name == "mlx_audio":
+            from comfier_agent.engines.mlx_audio import MlxAudioEngine
+
+            engines[name] = MlxAudioEngine(config)
         if name in MLX_PACKAGES and not installed(MLX_PACKAGES[name]):
             LOG.warning("%s is enabled but the %s package isn't installed; its jobs will fail", name,
                         MLX_PACKAGES[name])

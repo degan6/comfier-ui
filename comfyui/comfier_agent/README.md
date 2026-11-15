@@ -104,7 +104,7 @@ Environment variables override `comfier_agent.json`.
 | `HF_PROXY_TOKEN_HEADER` | `X-Proxy-Token` | Header name for `HF_PROXY_TOKEN`. |
 | `COMFIER_USE_HF_CLI` | `true` | Use the `hf` / `huggingface-cli` tool for Hub `/resolve/` links (falls back to HTTP). |
 | `COMFIER_MAX_CONCURRENT_DOWNLOADS` | `1` | Parallel model downloads (`0` = no limit). |
-| `COMFIER_ENGINES` | detected | Comma-separated engines to run: `comfyui`, `mflux`, `mlx_video`. Default: ComfyUI plus whichever of mflux and mlx-video are installed. Leave out `comfyui` on a Mac that doesn't run it. |
+| `COMFIER_ENGINES` | detected | Comma-separated engines to run: `comfyui`, `mflux`, `mlx_video`, `mlx_audio`. Default: ComfyUI plus whichever of mflux and mlx-video are installed. Leave out `comfyui` on a Mac that doesn't run it. |
 | `COMFIER_WORK_DIR` | `~/.comfier/work` | Where mflux and mlx-video jobs keep their inputs and results while they run. |
 | `COMFIER_MLX_IDLE_UNLOAD_MINUTES` | `10` | Unload mflux's model after this long without a job (`0` keeps it loaded). |
 | `COMFIER_MLX_VIDEO_IDLE_UNLOAD_MINUTES` | `10` | Unload MLX video's models after this long without a job (`0` keeps them loaded). Independent of the mflux timer. |
@@ -284,3 +284,49 @@ docker compose -f docker-compose.test.yml run --rm e2e
   before their job runs on someone else's server.
 - Download tokens you add in Comfier are only sent to the matching site and its subdomains. When a download redirects
   to another host, the agent drops every credential header.
+
+## MiniMax Music 3 on Apple Silicon
+
+The `mlx_audio` engine runs MiniMax Music 3 with [mlx-audio](https://github.com/Blaizzy/mlx-audio), the same BF16
+MLX pipeline as YuE Studio. It does not need ComfyUI, and there is nothing extra to install: the `[mac]` extra
+includes mlx-audio. On a Mac that already runs the agent, update it (`uv tool upgrade comfier-agent`), then run
+`comfier-agent setup` again and accept the detected engines, or add `mlx_audio` to `engines` in
+`~/.comfier/agent.json`, and restart the service. The engine is only offered when the installed mlx-audio has
+MiniMax Music 3 (0.6.3 or later); `comfier-agent doctor` shows the version.
+
+In **Settings → Workflows**, choose **MLX audio** and the **MiniMax Music 3 vocals** or **instrumental** preset.
+These use a fixed 60-second maximum, base 20 steps (Fast/Standard/Best = 10/20/30), and a 96 GB memory requirement.
+The memory requirement is a conservative starting estimate: a 60-second, 20-step BF16 run measured about 60.6 GB
+peak MLX allocation. It is not a full-length memory guarantee. Admins can edit the recipe's duration from 0.04 to
+300 seconds; length controls in the generation form are separate work. The model may stop early or be cut off
+at the maximum. Vocal recipes require lyrics; instrumentals condition on `[Instrumental]`, without guaranteeing
+that every output is vocal-free. Existing ComfyUI workflows are not converted automatically.
+
+MiniMax's sound controls have one source: literal numbers in the recipe JSON:
+
+```json
+"semantic_guidance": 1.5,
+"acoustic_guidance": 1.7,
+"top_k": 50
+```
+
+Semantic guidance controls the autoregressive musical tokens; acoustic guidance controls waveform synthesis.
+`top_k` controls token sampling in the semantic and residual codebooks (each stage clamps it to its vocabulary).
+Both guidance values accept 0–10; `top_k` accepts whole numbers from 1–16384. Omitted keys keep the defaults above.
+These keys do not accept placeholders such as `{{cfg}}`. Quality adjusts `{{steps}}` only, without scaling either
+guidance value or top-k. The unrelated Default guidance, Base resolution and Frame rate fields are hidden for
+MLX audio. Other engines keep their existing fields. mlx-audio has no arguments for these controls, so the worker
+sets them inside each job's own process; the installed package is not modified.
+
+The worker pins `mlx-community/MiniMax-Music3-bf16` revision `83a5f2d365673689df5c8f36e21e108751fd92ea`. The model is about
+28.5 GB. Download it from the server's workflow list before a run, or let the first run download it. Inventory
+only marks the pinned revision ready when its config, tokenizer and every weight shard are present.
+
+Each job is a separate, cancellable process. The existing single job slot, memory handover and cooperative GPU
+lock apply; other apps must use the same lock to cooperate. Progress reports loading and running, without an
+invented percentage. The worker preserves the explicit seed and the runtime's actual sample rate
+(currently 44.1 kHz stereo), uploads a lossless WAV master, and adds an MP3 V0 derivative when FFmpeg is available.
+An MP3 export failure keeps the WAV. Effective model/runtime versions, seed, steps, duration and memory metrics
+are written to the agent's log when each job finishes.
+Review the [MiniMax model license](https://huggingface.co/mlx-community/MiniMax-Music3-bf16/blob/main/LICENSE)
+when installing the weights. YuE2 and score planning are not implemented in this engine yet.

@@ -29,9 +29,13 @@ mflux = ["mflux>=0.22", "pillow<13"]
 # Blaizzy/mlx-video#52, which adds LTX-2.5 (with its Gemma 4 text encoder) and keeps LTX-2.3 and Wan; upstream
 # hasn't merged it yet. Move back to Blaizzy/mlx-video once it lands.
 video = ["mlx-video @ git+https://github.com/kiarina/mlx-video.git@cbb2c10f2a25305b0bf09169ab6b865ab86e3332"]
-# Everything a Mac needs: mflux, mlx-video and 3D previews.
+# Native Apple Silicon music generation (the mlx_audio engine). mlx-video already brings mlx-audio in through
+# mlx-vlm; this names the first release checked to carry MiniMax Music 3.
+audio = ["mlx-audio>=0.6.3"]
+# Everything a Mac needs: mflux, mlx-video, mlx-audio and 3D previews.
 mac = [
     "mflux>=0.22",
+    "mlx-audio>=0.6.3",
     "mlx-video @ git+https://github.com/kiarina/mlx-video.git@cbb2c10f2a25305b0bf09169ab6b865ab86e3332",
     "numpy>=1.24", "pillow>=10.0,<13", "trimesh>=4.0",
 ]

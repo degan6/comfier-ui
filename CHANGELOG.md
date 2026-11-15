@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format follows
 - Rails 8.1.4.1 (security release), plus updates to every other gem, including crass 1.0.8, and Ruby 4.0.9.
 
 ### Added
+- **Audio**: native MiniMax Music 3 on Apple Silicon through the `mlx_audio` agent engine, with
+  fixed 60-second vocal/instrumental presets, pinned BF16 weights, cancellable jobs, lossless WAV
+  output and optional MP3 export. Semantic/acoustic guidance and top-k are set directly in recipe JSON; unrelated
+  guidance, resolution and frame-rate fields are hidden for MLX audio. Existing ComfyUI workflows remain unchanged.
 - **Servers**: **Model overrides** let a server use its own version of a model file a workflow names, such as fp16
   weights on a Jetson Thor where fp8 gives static noise, or a smaller file on a card with less memory. Choose
   **Model overrides** on the server's page, pick the file, and give the replacement's name and download link, for every

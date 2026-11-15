@@ -12,7 +12,7 @@
                      class: 'form-select form-select-sm w-auto',
                      data: { engine_form_target: 'engine', action: 'engine-form#toggle' } %>
         <div class="form-text text-12">
-          mflux (images) and MLX video run natively on Apple Silicon Macs whose agent has those engines.
+          mflux (images), MLX video and MLX audio run natively on Apple Silicon Macs whose agent has those engines.
         </div>
       </div>
 
@@ -32,6 +32,10 @@
           (<code>"image_strength"</code> is <code>--image-strength</code>) and take the same
           <code>{{placeholders}}</code> as ComfyUI workflows. <code>min_memory_gb</code> keeps the style off Macs
           with less memory. The agent sets the output path.
+        </div>
+        <div class="form-text text-12 <%= 'd-none' unless workflow.engine_mlx_audio? %>" data-engine-form-target="audio">
+          Set <code>semantic_guidance</code>, <code>acoustic_guidance</code> and <code>top_k</code> directly in JSON.
+          Quality adjusts refinement steps only; it does not change guidance or top-k.
         </div>
       </div>
 
@@ -86,12 +90,12 @@
           <%= f.number_field :steps, min: 1, max: 150, class: 'form-control form-control-sm num' %>
           <div class="form-text text-12">Base for <code>{{steps}}</code> when Quality is Standard.</div>
         </div>
-        <div class="col-sm-3">
+        <div class="col-sm-3 <%= 'd-none' if workflow.engine_mlx_audio? %>" data-engine-form-target="nonAudio">
           <%= f.label :guidance, 'Default guidance', class: 'form-label' %>
           <%= f.number_field :guidance, min: 0.1, max: 30, step: 0.1, class: 'form-control form-control-sm num' %>
           <div class="form-text text-12">Base CFG for <code>{{cfg}}</code>.</div>
         </div>
-        <div class="col-sm-3">
+        <div class="col-sm-3 <%= 'd-none' if workflow.engine_mlx_audio? %>" data-engine-form-target="nonAudio">
           <%= f.label :base_resolution, class: 'form-label' %>
           <div class="input-group input-group-sm">
             <%= f.number_field :base_resolution, min: 64, max: 4096, step: 64, class: 'form-control num' %>
@@ -99,7 +103,7 @@
           </div>
           <div class="form-text text-12">Square size; other shapes keep the same pixel count.</div>
         </div>
-        <div class="col-sm-3">
+        <div class="col-sm-3 <%= 'd-none' if workflow.engine_mlx_audio? %>" data-engine-form-target="nonAudio">
           <%= f.label :frame_rate, class: 'form-label' %>
           <div class="input-group input-group-sm">
             <%= f.number_field :frame_rate, min: 1, max: 120, class: 'form-control num' %>
