@@ -46,71 +46,99 @@ use multipart form data. Submission returns immediately; poll the generation URL
 finishes with `status: "failed"` and `error: "Cancelled"`. Backend availability is checked by the
 normal scheduler after submission; an accepted generation can subsequently fail if no server can run it.
 
-## Submit and retrieve a result
+## How to use the API
 
-This example requires `curl` and `jq`. Replace the URL and token, then choose a workflow from the list.
+Use your Comfier URL in place of `https://comfier.example.com` and your personal token in place of
+`YOUR_TOKEN`. The IDs below are examples; use the IDs returned by your requests.
+
+### 1. Choose a workflow
+
+List the available workflows. Choose one by its `id` and check its `inputs` to see which controls
+it supports and which are required. A workflow determines what kind of output you create.
 
 ```bash
-export COMFIER_URL='https://comfier.example.com'
-export COMFIER_TOKEN='cmfu_replace_with_your_token'
-
-curl --fail-with-body --silent --show-error \
-  -H "Authorization: Bearer $COMFIER_TOKEN" \
-  "$COMFIER_URL/api/v1/workflows" | jq .
-
-export WORKFLOW_ID=1 # Replace with an ID from the workflow response.
-
-response=$(curl --fail-with-body --silent --show-error \
-  -H "Authorization: Bearer $COMFIER_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -H 'Idempotency-Key: first-example-generation' \
-  --data "$(jq -n --argjson workflow_id "$WORKFLOW_ID" \
-    '{generation: {workflow_id: $workflow_id, prompt: "A lighthouse above a misty sea", aspect_ratio: "16:9"}}')" \
-  "$COMFIER_URL/api/v1/generations")
-
-generation_id=$(printf '%s' "$response" | jq -r '.generation.id')
-
-while true; do
-  result=$(curl --fail-with-body --silent --show-error \
-    -H "Authorization: Bearer $COMFIER_TOKEN" \
-    "$COMFIER_URL/api/v1/generations/$generation_id") || exit 1
-  status=$(printf '%s' "$result" | jq -r '.generation.status')
-  case "$status" in
-    succeeded) break ;;
-    failed) printf '%s\n' "$result" | jq '.generation.error'; exit 1 ;;
-  esac
-  sleep 3
-done
-
-output_url=$(printf '%s' "$result" | jq -r '.generation.outputs[0].download_url')
-curl --fail-with-body --silent --show-error \
-  -H "Authorization: Bearer $COMFIER_TOKEN" \
-  --output result.bin "$output_url"
+curl --fail-with-body 'https://comfier.example.com/api/v1/workflows' \
+  -H 'Authorization: Bearer YOUR_TOKEN'
 ```
 
-Use a new idempotency key for each intended generation. Reuse the same key and request when retrying
-a submission after a lost connection; otherwise the example above will return the earlier generation.
+### 2. Submit a generation
 
-For a workflow with an image input, submit a local file:
+Send the workflow ID and supported inputs inside a `generation` object. For example, if workflow
+`12` accepts a prompt and aspect ratio:
 
 ```bash
-curl --fail-with-body --silent --show-error \
-  -H "Authorization: Bearer $COMFIER_TOKEN" \
-  -H 'Idempotency-Key: reference-image-example' \
-  -F "generation[workflow_id]=$WORKFLOW_ID" \
+curl --fail-with-body 'https://comfier.example.com/api/v1/generations' \
+  -H 'Authorization: Bearer YOUR_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: unique-request-001' \
+  --data '{"generation":{"workflow_id":12,"prompt":"A lighthouse above a misty sea","aspect_ratio":"16:9"}}'
+```
+
+A successful submission returns `201` with a `generation` object. Save its `id`; the `Location`
+header also identifies its status URL. Submission queues the work and returns before it finishes.
+
+The optional `Idempotency-Key` prevents duplicate jobs when retrying a submission. Use a fresh key
+for each new intended generation. Reuse the same key and identical request only when retrying that
+submission, such as after a lost connection. See **Retrying submissions** below for details.
+
+### 3. Check progress
+
+Request the generation by its ID. For example, if submission returned `generation.id` of `42`:
+
+```bash
+curl --fail-with-body 'https://comfier.example.com/api/v1/generations/42' \
+  -H 'Authorization: Bearer YOUR_TOKEN'
+```
+
+Repeat this request every few seconds while `status` is `queued` or `running`. When it becomes
+`succeeded`, the `outputs` array contains the available files. When it becomes `failed`, read
+`error` for the reason and stop polling. A cancelled generation also finishes as `failed`, with
+`error` set to `Cancelled`.
+
+### 4. Download an output
+
+Use an output's `download_url` from the generation response and send the same Bearer token.
+For example, if that URL ends in `/generations/42/outputs/7`:
+
+```bash
+curl --fail-with-body 'https://comfier.example.com/api/v1/generations/42/outputs/7' \
+  -H 'Authorization: Bearer YOUR_TOKEN' \
+  --output result.bin
+```
+
+Choose a local filename appropriate to the output's `filename` or `content_type`. Download each
+entry in `outputs` if the generation produced multiple files. Output URLs require authentication;
+sharing a download URL alone does not give someone access to the file.
+
+### Use a reference image
+
+For workflows with an image input, use multipart form data instead of JSON. Send the image as
+`generation[input_image]` and the other inputs as `generation[field_name]`. For example, if workflow
+`15` supports an image, prompt, and denoise:
+
+```bash
+curl --fail-with-body 'https://comfier.example.com/api/v1/generations' \
+  -H 'Authorization: Bearer YOUR_TOKEN' \
+  -F 'generation[workflow_id]=15' \
   -F 'generation[prompt]=A watercolor version of this scene' \
   -F 'generation[input_image]=@reference.png' \
-  -F 'generation[denoise]=0.6' \
-  "$COMFIER_URL/api/v1/generations"
+  -F 'generation[denoise]=0.6'
 ```
 
-Cancel with:
+Replace `reference.png` with your local image path. Let curl set the multipart content type so it
+includes the correct boundary. Follow the same status and download steps as for a JSON submission.
+
+### Cancel a generation
+
+Send a POST to the generation's cancellation URL while it is queued or running:
 
 ```bash
-curl --fail-with-body --silent --show-error --request POST \
-  -H "Authorization: Bearer $COMFIER_TOKEN" \
-  "$COMFIER_URL/api/v1/generations/$generation_id/cancel"
+curl --fail-with-body --request POST 'https://comfier.example.com/api/v1/generations/42/cancel' \
+  -H 'Authorization: Bearer YOUR_TOKEN'
 ```
+
+Cancellation can take time. Keep checking the generation until it reaches a terminal status.
+If it has already finished, cancellation returns `409 not_cancellable`.
 
 ## Generation inputs
 
