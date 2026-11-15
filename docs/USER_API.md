@@ -1,5 +1,9 @@
 # User API
 
+In Comfier, open **Settings → API documentation** to read this guide or use **Copy for LLM** to
+copy the complete Markdown for an AI assistant. Examples on that page use your installation's URL;
+replace the placeholder token with your own when running them. The copied guide does not include your token.
+
 The `/api/v1` JSON API lets scripts list workflows, submit generations, poll their status, cancel work,
 and download results. It uses the same validation, queue, server permissions, and generation settings
 as the web interface. The existing `/api/agent` endpoints are a separate API for generation servers.

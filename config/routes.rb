@@ -69,6 +69,7 @@ Rails.application.routes.draw do
   end
 
   resource :settings, only: %i[show update]
+  get 'settings/api-documentation', to: 'api_documentation#show', as: :api_documentation
   resources :personal_api_tokens, path: 'settings/api-tokens', only: %i[index create destroy]
   resource :public_links, only: %i[show destroy], path: 'settings/public-links'
   resources :source_credentials, only: %i[index create destroy], path: 'settings/tokens'
