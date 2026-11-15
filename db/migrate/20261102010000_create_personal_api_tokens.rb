@@ -6,7 +6,6 @@ class CreatePersonalApiTokens < ActiveRecord::Migration[8.1]
       t.string :token_digest, null: false
       t.string :token_prefix, null: false
       t.datetime :last_used_at
-      t.datetime :revoked_at
       t.timestamps
     end
 
