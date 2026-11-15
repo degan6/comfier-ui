@@ -2,5 +2,17 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "automergeType": "pr",
+  "packageRules": [
+    {
+      "matchUpdateTypes": [
+        "patch",
+        "minor",
+        "digest"
+      ],
+      "automerge": true,
+      "description": "Auto-merge green patch/minor/digest bumps; majors stay PR-only."
+    }
   ]
 }
