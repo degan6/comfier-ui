@@ -1,16 +1,15 @@
-"""The tested MiniMax Music 3 MLX runtime, isolated from the agent and its other engines."""
+"""Runs one MiniMax Music 3 job with mlx-audio, in its own process so the agent never imports MLX."""
 
 from __future__ import annotations
 
 import argparse
-import contextlib
+import importlib
 import importlib.metadata
 import json
 import math
 import os
 import shutil
 import subprocess
-import threading
 import time
 from pathlib import Path
 
@@ -87,21 +86,16 @@ def emit(event: str, **extra) -> None:
     print(json.dumps({"event": event, **extra}), flush=True)
 
 
-@contextlib.contextmanager
-def generation_controls(recipe: dict):
-    # The pinned runtime ignores extra generate() kwargs. These globals are read by its AR and flow
-    # stages; only this isolated job process changes them, and restores them on success or failure.
+def apply_controls(recipe: dict) -> dict:
+    # mlx-audio's generate() ignores extra kwargs. Its AR and flow stages read these module globals instead,
+    # and this process runs one job, so nothing else sees the change.
     ar = importlib.import_module("mlx_audio.music.models.minimax_music3.ar")
     pipeline = importlib.import_module("mlx_audio.music.models.minimax_music3.minimax_music3")
     controls = {key: recipe.get(key, default) for key, default in DEFAULT_CONTROLS.items()}
-    previous = ar.AR_CFG_SCALE, ar.AR_CFG_TOP_K, ar.AR_SAMPLING_TOP_K, pipeline.DIT_CFG_SCALE
     ar.AR_CFG_SCALE = controls["semantic_guidance"]
     ar.AR_CFG_TOP_K = ar.AR_SAMPLING_TOP_K = controls["top_k"]
     pipeline.DIT_CFG_SCALE = controls["acoustic_guidance"]
-    try:
-        yield controls
-    finally:
-        ar.AR_CFG_SCALE, ar.AR_CFG_TOP_K, ar.AR_SAMPLING_TOP_K, pipeline.DIT_CFG_SCALE = previous
+    return controls
 
 
 def generate(recipe: dict, output: Path) -> None:
@@ -115,47 +109,35 @@ def generate(recipe: dict, output: Path) -> None:
     started = time.perf_counter()
     model = load(str(model_path()))
     loaded = time.perf_counter()
-    done = threading.Event()
-
-    def heartbeat() -> None:
-        while not done.wait(30):
-            emit("heartbeat", elapsed_seconds=round(time.perf_counter() - loaded))
-
-    threading.Thread(target=heartbeat, daemon=True).start()
-    try:
-        with generation_controls(recipe) as controls:
-            emit("loaded", **controls)
-            result = next(model.generate(text=recipe["caption"], lyrics=recipe["lyrics"], duration=recipe["duration"],
-                                         steps=recipe["steps"], seed=recipe["seed"]))
-        audio = np.asarray(result.audio)
-        if audio.ndim != 2 or audio.shape[0] == 0 or audio.shape[1] != 2 or not np.isfinite(audio).all():
-            raise ValueError("MiniMax produced invalid or empty stereo audio")
-        rate = result.sample_rate
-        if isinstance(rate, bool) or not isinstance(rate, int) or rate <= 0:
-            raise ValueError("MiniMax produced an invalid sample rate")
-        emit("saving")
-        output.parent.mkdir(parents=True, exist_ok=True)
-        write(output, result.audio, rate)
-        metrics = {"model": MODEL, "revision": REVISION, "runtime_version": importlib.metadata.version("mlx-audio"),
-                   "mlx_version": importlib.metadata.version("mlx"), "load_seconds": loaded - started,
-                   "generation_seconds": time.perf_counter() - loaded, "peak_mlx_gb": mx.get_peak_memory() / 1e9,
-                   "sample_rate": rate, "duration_seconds": len(audio) / rate,
-                   "requested_seconds": recipe["duration"], "steps": recipe["steps"], "seed": recipe["seed"],
-                   **controls}
-        output.with_suffix(".metrics.json").write_text(json.dumps(metrics, indent=2) + "\n")
-        # WAV is the master; a missing/failed encoder never loses the recording.
-        ffmpeg = shutil.which("ffmpeg")
-        if ffmpeg:
-            mp3 = output.with_suffix(".mp3")
-            try:
-                subprocess.run([ffmpeg, "-v", "error", "-y", "-i", str(output), "-c:a", "libmp3lame", "-q:a", "0",
-                                str(mp3)], check=True, timeout=300)
-            except (OSError, subprocess.SubprocessError) as exc:
-                mp3.unlink(missing_ok=True)
-                print(f"MP3 export failed; keeping WAV: {exc}", flush=True)
-        emit("done", **metrics)
-    finally:
-        done.set()
+    controls = apply_controls(recipe)
+    emit("loaded", **controls)
+    result = next(model.generate(text=recipe["caption"], lyrics=recipe["lyrics"], duration=recipe["duration"],
+                                 steps=recipe["steps"], seed=recipe["seed"]))
+    audio = np.asarray(result.audio)
+    if audio.ndim != 2 or audio.shape[0] == 0 or audio.shape[1] != 2 or not np.isfinite(audio).all():
+        raise ValueError("MiniMax produced invalid or empty stereo audio")
+    rate = result.sample_rate
+    if isinstance(rate, bool) or not isinstance(rate, int) or rate <= 0:
+        raise ValueError("MiniMax produced an invalid sample rate")
+    emit("saving")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    write(output, result.audio, rate)
+    # WAV is the master; a missing/failed encoder never loses the recording.
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg:
+        mp3 = output.with_suffix(".mp3")
+        try:
+            subprocess.run([ffmpeg, "-v", "error", "-y", "-i", str(output), "-c:a", "libmp3lame", "-q:a", "0",
+                            str(mp3)], check=True, timeout=300)
+        except (OSError, subprocess.SubprocessError) as exc:
+            mp3.unlink(missing_ok=True)
+            print(f"MP3 export failed; keeping WAV: {exc}", flush=True)
+    # The agent logs this line: what the job actually ran with.
+    emit("done", model=MODEL, revision=REVISION, runtime_version=importlib.metadata.version("mlx-audio"),
+         mlx_version=importlib.metadata.version("mlx"), load_seconds=loaded - started,
+         generation_seconds=time.perf_counter() - loaded, peak_mlx_gb=mx.get_peak_memory() / 1e9,
+         sample_rate=rate, duration_seconds=len(audio) / rate, requested_seconds=recipe["duration"],
+         steps=recipe["steps"], seed=recipe["seed"], **controls)
 
 
 def main() -> None:

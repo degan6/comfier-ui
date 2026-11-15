@@ -314,7 +314,7 @@ periodic jobs in `config/schedule.yml` (sidekiq-cron), which mark silent servers
 **Macs.** On Apple Silicon the agent can run image jobs with [mflux](https://github.com/filipstrand/mflux) and video
 jobs with [mlx-video](https://github.com/Blaizzy/mlx-video) instead of ComfyUI, installed as a login service with `uv tool install` and `comfier-agent service install` (the setup page shows
 the commands). A Mac can run these alone or alongside ComfyUI; either way it runs one job at a time and hands memory
-between them. Native MiniMax Music 3 audio is available through an optional isolated MLX audio runtime; see
+between them. Native MiniMax Music 3 audio runs through the `mlx_audio` engine; see
 [MiniMax setup](comfyui/comfier_agent/README.md#minimax-music-3-on-apple-silicon). Admins add native styles under **Settings → Workflows → Runs on**. See
 [docs/mlx-engines-plan.md](docs/mlx-engines-plan.md) for the design.
 

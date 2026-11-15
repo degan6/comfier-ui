@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import re
 import sys
 import time
@@ -16,12 +15,11 @@ from comfier_agent.engines.mlx import ChildProcess, MlxEngine
 from comfier_agent.workers.minimax_music import MODEL, validate
 
 LOG = logging.getLogger("comfier_agent")
-WORKER = "comfier_agent.workers.minimax_music"
 POLL_S = 0.5
 
 
-def worker_argv(config) -> list[str]:
-    return [os.path.expanduser(config.mlx_audio_python or sys.executable), "-m", WORKER]
+def default_worker_argv() -> list[str]:
+    return [sys.executable, "-m", "comfier_agent.workers.minimax_music"]
 
 
 class MlxAudioEngine(MlxEngine):
@@ -30,7 +28,7 @@ class MlxAudioEngine(MlxEngine):
 
     def __init__(self, config, runner_argv: list[str] | None = None):
         super().__init__(config)
-        self.runner_argv = runner_argv or worker_argv(config)
+        self.runner_argv = runner_argv or default_worker_argv()
         self.process: ChildProcess | None = None
         self.ready = False
 
@@ -68,7 +66,6 @@ class MlxAudioEngine(MlxEngine):
             raise JobError("validate", str(exc)) from exc
 
     async def execute(self, ctx: JobContext, workflow: Any, *, timeout_s: int, progress: ProgressFn) -> list[dict]:
-        self.validate(workflow)
         folder = self.job_dir(ctx)
         request = folder / "request.json"
         request.write_text(json.dumps(workflow))

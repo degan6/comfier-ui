@@ -47,15 +47,6 @@
       <a href="https://docs.astral.sh/uv/" target="_blank" rel="noopener">uv</a>:
     </p>
     <pre class="text-12 bg-body-tertiary p-2 rounded"><%= mac_install_snippet(@new_key || 'cmf_…your key…') %></pre>
-    <p class="text-13 mt-3 mb-2">
-      To add MiniMax music, install its isolated audio runtime:
-    </p>
-    <pre class="text-12 bg-body-tertiary p-2 rounded">comfier-agent install audio</pre>
-    <p class="text-12 text-secondary mb-2">
-      This checks the runtime and configures the agent automatically. When no jobs are running, apply it with
-      <code>comfier-agent service restart</code>. The first music job downloads about 28.5 GB of model weights.
-      Admins can then add an MLX audio workflow under Settings → Workflows.
-    </p>
     <p class="text-12 text-secondary mb-0">
       <code>setup</code> asks whether this Mac also runs ComfyUI. <code>comfier-agent doctor</code> checks everything,
       and <code>comfier-agent logs -f</code> shows what it's doing. Admins add mflux and MLX video styles under

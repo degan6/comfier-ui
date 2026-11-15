@@ -105,7 +105,6 @@ Environment variables override `comfier_agent.json`.
 | `COMFIER_USE_HF_CLI` | `true` | Use the `hf` / `huggingface-cli` tool for Hub `/resolve/` links (falls back to HTTP). |
 | `COMFIER_MAX_CONCURRENT_DOWNLOADS` | `1` | Parallel model downloads (`0` = no limit). |
 | `COMFIER_ENGINES` | detected | Comma-separated engines to run: `comfyui`, `mflux`, `mlx_video`, `mlx_audio`. Default: ComfyUI plus whichever of mflux and mlx-video are installed. Leave out `comfyui` on a Mac that doesn't run it. |
-| `COMFIER_MLX_AUDIO_PYTHON` | agent Python | Python executable in the isolated MLX audio environment (also `mlx_audio_python` in agent.json). |
 | `COMFIER_WORK_DIR` | `~/.comfier/work` | Where mflux and mlx-video jobs keep their inputs and results while they run. |
 | `COMFIER_MLX_IDLE_UNLOAD_MINUTES` | `10` | Unload mflux's model after this long without a job (`0` keeps it loaded). |
 | `COMFIER_MLX_LOAD_TIMEOUT_SECONDS` | `3600` | How long loading an mflux or mlx-video model may take, including its first download. The job's time limit starts after. |
@@ -276,22 +275,12 @@ docker compose -f docker-compose.test.yml run --rm e2e
 
 ## MiniMax Music 3 on Apple Silicon
 
-The `mlx_audio` engine runs MiniMax Music 3 through the same BF16 MLX pipeline as YuE Studio. It does not need
-ComfyUI. After installing or upgrading the main agent, enable music with:
-
-```sh
-comfier-agent install audio
-```
-
-This creates an isolated Python 3.12 runtime, installs the pinned dependencies, verifies MiniMax support,
-and saves its interpreter path. It preserves your server key and other engines, adding `mlx_audio` to an
-explicit engine list. It waits for the shared GPU lock before changing the runtime. Repeating the command
-reuses the environment. No manual JSON changes are needed.
-
-When the agent is idle, run `comfier-agent service restart` to apply the configuration. Foreground agents
-can be stopped and started again with `comfier-agent run`. Installation does not restart a running agent
-or download model weights. `comfier-agent doctor` checks the configured interpreter.
-Advanced installations can still set `mlx_audio_python` themselves or use the `[audio]` extra.
+The `mlx_audio` engine runs MiniMax Music 3 with [mlx-audio](https://github.com/Blaizzy/mlx-audio), the same BF16
+MLX pipeline as YuE Studio. It does not need ComfyUI, and there is nothing extra to install: the `[mac]` extra
+includes mlx-audio. On a Mac that already runs the agent, update it (`uv tool upgrade comfier-agent`), then run
+`comfier-agent setup` again and accept the detected engines, or add `mlx_audio` to `engines` in
+`~/.comfier/agent.json`, and restart the service. The engine is only offered when the installed mlx-audio has
+MiniMax Music 3 (0.6.3 or later); `comfier-agent doctor` shows the version.
 
 In **Settings → Workflows**, choose **MLX audio** and the **MiniMax Music 3 vocals** or **instrumental** preset.
 These use a fixed 60-second maximum, base 20 steps (Fast/Standard/Best = 10/20/30), and a 96 GB memory requirement.
@@ -314,19 +303,18 @@ Semantic guidance controls the autoregressive musical tokens; acoustic guidance 
 Both guidance values accept 0–10; `top_k` accepts whole numbers from 1–16384. Omitted keys keep the defaults above.
 These keys do not accept placeholders such as `{{cfg}}`. Quality adjusts `{{steps}}` only, without scaling either
 guidance value or top-k. The unrelated Default guidance, Base resolution and Frame rate fields are hidden for
-MLX audio. Other engines keep their existing fields. The pinned runtime's controls are applied in each job's
-isolated process; the installed runtime and other applications are not modified.
+MLX audio. Other engines keep their existing fields. mlx-audio has no arguments for these controls, so the worker
+sets them inside each job's own process; the installed package is not modified.
 
-The worker pins `mlx-audio` commit `784b29e2691a93ca7483147d86f61859dfaa6296`, MLX 0.32.2, and
-`mlx-community/MiniMax-Music3-bf16` revision `83a5f2d365673689df5c8f36e21e108751fd92ea`. The model is about
+The worker pins `mlx-community/MiniMax-Music3-bf16` revision `83a5f2d365673689df5c8f36e21e108751fd92ea`. The model is about
 28.5 GB. Download it from the server's workflow list before a run, or let the first run download it. Inventory
 only marks the pinned revision ready when its config, tokenizer and every weight shard are present.
 
 Each job is a separate, cancellable process. The existing single job slot, memory handover and cooperative GPU
-lock apply; other apps must use the same lock to cooperate. Progress reports loading and running, with a heartbeat
-rather than an invented percentage. The worker preserves the explicit seed and the runtime's actual sample rate
+lock apply; other apps must use the same lock to cooperate. Progress reports loading and running, without an
+invented percentage. The worker preserves the explicit seed and the runtime's actual sample rate
 (currently 44.1 kHz stereo), uploads a lossless WAV master, and adds an MP3 V0 derivative when FFmpeg is available.
 An MP3 export failure keeps the WAV. Effective model/runtime versions, seed, steps, duration and memory metrics
-are logged and saved locally beside the WAV; `COMFIER_KEEP_OUTPUTS=true` retains those local files after upload.
+are written to the agent's log when each job finishes.
 Review the [MiniMax model license](https://huggingface.co/mlx-community/MiniMax-Music3-bf16/blob/main/LICENSE)
 when installing the weights. YuE2 and score planning are not implemented in this engine yet.
