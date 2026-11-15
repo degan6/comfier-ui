@@ -136,9 +136,10 @@ class AgentConfig:
     hf_endpoint: str | None = None
     hf_proxy_token: str | None = None
     hf_proxy_token_header: str = "X-Proxy-Token"
-    # Engines to run: comfyui, mflux, mlx_video. None runs ComfyUI plus whichever MLX tools are installed.
+    # Engines to run: comfyui, mflux, mlx_video, mlx_audio. None runs ComfyUI plus whichever MLX tools are installed.
     engines: list[str] | None = None
     work_dir: str = field(default_factory=lambda: str(comfier_home() / "work"))
+    mlx_audio_python: str | None = None
     mlx_idle_unload_minutes: float = 10.0
     mlx_load_timeout_s: int = 3600
     gpu_lock: bool = True
@@ -199,6 +200,7 @@ def _merge_file(data: dict[str, Any], cfg: AgentConfig) -> None:
         "allow_pickle_formats": "allow_pickle_formats",
         "engines": "engines",
         "work_dir": "work_dir",
+        "mlx_audio_python": "mlx_audio_python",
         "mlx_idle_unload_minutes": "mlx_idle_unload_minutes",
         "mlx_load_timeout_s": "mlx_load_timeout_s",
         "gpu_lock": "gpu_lock",
@@ -266,6 +268,8 @@ def load_config(*, sidecar: bool = False, overrides: dict[str, Any] | None = Non
     cfg.engines = _parse_engines(cfg.engines)
     if os.environ.get("COMFIER_WORK_DIR"):
         cfg.work_dir = os.environ["COMFIER_WORK_DIR"]
+    if os.environ.get("COMFIER_MLX_AUDIO_PYTHON"):
+        cfg.mlx_audio_python = os.environ["COMFIER_MLX_AUDIO_PYTHON"].strip()
     cfg.mlx_idle_unload_minutes = _env_float("COMFIER_MLX_IDLE_UNLOAD_MINUTES", cfg.mlx_idle_unload_minutes)
     cfg.mlx_load_timeout_s = _env_int("COMFIER_MLX_LOAD_TIMEOUT_SECONDS", cfg.mlx_load_timeout_s)
     cfg.gpu_lock = _env_bool("COMFIER_GPU_LOCK", cfg.gpu_lock)

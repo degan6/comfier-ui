@@ -11,7 +11,8 @@ class WorkflowEngine
   ALL = [
     Engine.new(key: 'comfyui', label: 'ComfyUI', kinds: nil),
     Engine.new(key: 'mflux', label: 'mflux', kinds: %w[image]),
-    Engine.new(key: 'mlx_video', label: 'MLX video', kinds: %w[video])
+    Engine.new(key: 'mlx_video', label: 'MLX video', kinds: %w[video]),
+    Engine.new(key: 'mlx_audio', label: 'MLX audio', kinds: %w[audio])
   ].freeze
 
   BY_KEY = ALL.index_by(&:key).freeze

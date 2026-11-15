@@ -1,7 +1,7 @@
-# Starting recipes for mflux and MLX video workflows, offered on the admin workflow form. Memory
+# Starting recipes for native image, video and audio workflows, offered on the admin workflow form. Memory
 # figures are rough guides (LTX-2.3 is a 22B video model plus a 12B Gemma text encoder, in bf16); edit
 # `min_memory_gb` in the recipe to match your Macs.
-class EnginePreset
+class EnginePreset # rubocop:disable Metrics/ClassLength
   # `settings` are the style's own fields (steps, guidance, frame_rate) the form fills in with the recipe.
   Preset = Data.define(:engine, :key, :label, :kind, :recipe, :settings) do
     def initialize(settings: {}, **) = super
@@ -39,7 +39,20 @@ class EnginePreset
   LTX_25_8BIT = { **LTX_25, 'quantize' => 8 }.freeze
   LTX_25_8BIT_VIDEO = { **LTX_VIDEO, 'min_memory_gb' => 48 }.freeze
 
+  # Music length controls are a separate feature. These recipes use a fixed 60-second maximum; an
+  # admin can edit it up to 300. Base 20 steps makes Fast/Standard/Best 10/20/30, MiniMax's supported range.
+  MINIMAX = {
+    'command' => 'minimax-music3', 'model' => EngineRecipe::MINIMAX_MODEL, 'caption' => '{{prompt}}',
+    'duration' => 60, 'steps' => '{{steps}}', 'seed' => '{{seed}}', 'min_memory_gb' => 96
+  }.freeze
+
   ALL = [
+    Preset.new(engine: 'mlx_audio', key: 'minimax-music3-vocals', label: 'MiniMax Music 3 vocals (60 seconds, 96 GB)',
+               kind: 'audio', recipe: { **MINIMAX, 'lyrics' => '{{lyrics}}' }, settings: { 'steps' => 20 }),
+    Preset.new(engine: 'mlx_audio', key: 'minimax-music3-instrumental',
+               label: 'MiniMax Music 3 instrumental (60 seconds, 96 GB)', kind: 'audio',
+               recipe: { **MINIMAX, 'caption' => '{{prompt}}, instrumental, no vocals', 'lyrics' => '[Instrumental]' },
+               settings: { 'steps' => 20 }),
     Preset.new(engine: 'mflux', key: 'z-image-turbo', label: 'Z-Image Turbo (fast, 16 GB)', kind: 'image', recipe: {
                  'command' => 'mflux-generate-z-image-turbo', 'model' => 'z-image-turbo', 'quantize' => 8,
                  'steps' => 9, **IMAGE, 'min_memory_gb' => 16

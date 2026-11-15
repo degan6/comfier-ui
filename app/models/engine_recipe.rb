@@ -11,12 +11,16 @@
 module EngineRecipe # rubocop:disable Metrics/ModuleLength
   COMMANDS = {
     'mflux' => /\Amflux-generate[a-z0-9.-]*\z/,
-    'mlx_video' => /\Amlx_video(\.[a-z0-9_]+)+\z/
+    'mlx_video' => /\Amlx_video(\.[a-z0-9_]+)+\z/,
+    'mlx_audio' => /\Aminimax-music3\z/
   }.freeze
   COMMAND_HINTS = {
     'mflux' => 'an mflux command such as mflux-generate-z-image-turbo',
-    'mlx_video' => 'an mlx-video module such as mlx_video.ltx_2.generate'
+    'mlx_video' => 'an mlx-video module such as mlx_video.ltx_2.generate',
+    'mlx_audio' => 'minimax-music3'
   }.freeze
+  MINIMAX_MODEL = 'mlx-community/MiniMax-Music3-bf16'.freeze
+  MINIMAX_OPTIONS = %w[command model caption lyrics duration steps seed min_memory_gb].freeze
   KEY = /\A[a-z][a-z0-9_]*\z/
   # The Gemma 3 text encoder LTX-2.3 is known to work with in mlx-video.
   LTX_TEXT_ENCODER = 'mlx-community/gemma-3-12b-it-bf16'.freeze
@@ -49,8 +53,30 @@ module EngineRecipe # rubocop:disable Metrics/ModuleLength
     found << command_problem(engine, recipe['command']) unless valid_command?(engine, recipe['command'])
     found << 'needs "model"' if engine == 'mflux' && !recipe['model'].is_a?(String)
     found.concat(mlx_video_model_problems(recipe)) if engine == 'mlx_video'
+    found.concat(mlx_audio_problems(recipe)) if engine == 'mlx_audio'
     found << "has too many options (#{recipe.size})" if recipe.size > MAX_KEYS
     found
+  end
+
+  # The audio worker deliberately exposes only the tested MiniMax BF16 pipeline.
+  def mlx_audio_problems(recipe)
+    found = []
+    found << "needs \"model\": #{MINIMAX_MODEL}" unless recipe['model'] == MINIMAX_MODEL
+    (recipe.keys - MINIMAX_OPTIONS).each { found << "unsupported MiniMax option: #{it}" }
+    %w[caption lyrics].each do |key|
+      found << "needs \"#{key}\"" unless recipe[key].is_a?(String) && recipe[key].present?
+    end
+    found + minimax_numeric_problems(recipe)
+  end
+
+  def minimax_numeric_problems(recipe)
+    { 'duration' => 0.04..300, 'steps' => 1..30, 'seed' => 0..Generation::MAX_SEED }.filter_map do |key, range|
+      value = recipe[key]
+      next if value == "{{#{key}}}"
+      next if value.is_a?(Numeric) && range.cover?(value) && (key == 'duration' || value.is_a?(Integer))
+
+      "\"#{key}\" must be #{range} or {{#{key}}}"
+    end
   end
 
   # mlx-video has no --model: LTX loads model_repo (a Hugging Face owner/name), Wan a local model_dir.

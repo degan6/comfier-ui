@@ -58,7 +58,7 @@ class AgentRuntime:
         return self.uses_comfy and self._comfy_ok
 
     def engine_available(self, name: str) -> bool:
-        return name in self.engines and (name != "comfyui" or self.comfy_ready)
+        return name in self.engines and self.engines[name].ready and (name != "comfyui" or self.comfy_ready)
 
     def available_engines(self) -> dict:
         """What this server can run right now: ComfyUI drops out while it's unreachable."""

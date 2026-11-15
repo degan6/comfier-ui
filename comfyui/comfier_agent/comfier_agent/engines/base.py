@@ -52,6 +52,7 @@ class Engine:
     local file the JobManager uploads and then deletes (unless keep_outputs)."""
 
     name = "engine"
+    ready = True
 
     async def available(self) -> bool:
         return True

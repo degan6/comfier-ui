@@ -63,7 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup.add_argument("--key", help="this server's key from Comfier (cmf_...)")
     setup.add_argument("--name", help="server name shown in Comfier")
     setup.add_argument("--comfyui-url", help="ComfyUI's URL, or 'none' if this machine doesn't run ComfyUI")
-    setup.add_argument("--engines", help="comma-separated: comfyui,mflux,mlx_video (default: detect)")
+    setup.add_argument("--engines", help="comma-separated: comfyui,mflux,mlx_video,mlx_audio (default: detect)")
     setup.add_argument("--allow-insecure", action="store_true", help="allow an http Comfier URL (testing only)")
     setup.add_argument("--yes", "-y", action="store_true", help="don't ask; use flags and defaults")
     setup.set_defaults(func=cmd_setup)
@@ -364,7 +364,7 @@ def cmd_doctor(_args) -> int:
     ram = _host_ram_bytes()[0]
     report(None, f"{platform.platform()}" + (f", {ram / 2**30:.0f} GB memory" if ram else ""))
     if not apple:
-        report(None, "Not an Apple Silicon Mac: mflux and mlx-video won't be offered")
+        report(None, "Not an Apple Silicon Mac: native MLX engines won't be offered")
 
     config = load_config(sidecar=True)
     report(config.ok, f"Settings in {config.config_path}" + ("" if config.ok else f": {config.idle_reason}"))
@@ -377,7 +377,15 @@ def cmd_doctor(_args) -> int:
     names = engine_names(config)
     report(bool(names), f"Engines: {', '.join(names) or 'none'}")
     for name, package in MLX_PACKAGES.items():
-        if name in names:
+        if name == "mlx_audio" and name in names:
+            from comfier_agent.engines.mlx_audio import MlxAudioEngine
+
+            engine = MlxAudioEngine(config)
+            asyncio.run(engine.refresh())
+            detail = engine.version or engine.extra_info.get("runtime_error") or "runtime unavailable"
+            report(bool(engine.version), f"mlx_audio: {detail} "
+                   f"({config.mlx_audio_python or sys.executable})")
+        elif name in names:
             ok = installed(package)
             version = package_version(package) if ok else None
             report(ok, f"{name}: " + (f"{package} {version}" if ok else f"the {package} package isn't installed"))

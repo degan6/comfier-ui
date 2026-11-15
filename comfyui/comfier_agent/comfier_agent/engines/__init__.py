@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import importlib.util
 import logging
+import os
+from pathlib import Path
 
 LOG = logging.getLogger("comfier_agent")
 
-KNOWN = ("comfyui", "mflux", "mlx_video")
+KNOWN = ("comfyui", "mflux", "mlx_video", "mlx_audio")
 # The Python package each MLX engine needs.
-MLX_PACKAGES = {"mflux": "mflux", "mlx_video": "mlx_video"}
+MLX_PACKAGES = {"mflux": "mflux", "mlx_video": "mlx_video", "mlx_audio": "mlx_audio"}
 
 
 def installed(package: str) -> bool:
@@ -26,7 +28,11 @@ def engine_names(config) -> list[str]:
         if unknown:
             LOG.warning("ignoring unknown engines: %s", ", ".join(unknown))
         return [n for n in KNOWN if n in config.engines]
-    return ["comfyui", *(name for name, pkg in MLX_PACKAGES.items() if installed(pkg))]
+    names = ["comfyui", *(name for name, pkg in MLX_PACKAGES.items() if installed(pkg))]
+    external_audio = config.mlx_audio_python and Path(os.path.expanduser(config.mlx_audio_python)).is_file()
+    if external_audio and "mlx_audio" not in names:
+        names.append("mlx_audio")
+    return names
 
 
 def build_engines(config, comfy) -> dict:
@@ -44,7 +50,12 @@ def build_engines(config, comfy) -> dict:
             from comfier_agent.engines.mlx_video import MlxVideoEngine
 
             engines[name] = MlxVideoEngine(config)
-        if name in MLX_PACKAGES and not installed(MLX_PACKAGES[name]):
+        elif name == "mlx_audio":
+            from comfier_agent.engines.mlx_audio import MlxAudioEngine
+
+            engines[name] = MlxAudioEngine(config)
+        external_audio = name == "mlx_audio" and config.mlx_audio_python
+        if name in MLX_PACKAGES and not external_audio and not installed(MLX_PACKAGES[name]):
             LOG.warning("%s is enabled but the %s package isn't installed; its jobs will fail", name,
                         MLX_PACKAGES[name])
     return engines
