@@ -21,7 +21,7 @@ class ApiDocumentationTest < ActionDispatch::IntegrationTest
     assert_select 'article h2', text: 'Authentication'
     assert_select 'article table td code', text: '/api/v1/workflows'
     assert_select 'article pre code', text: %r{export COMFIER_URL='http://www.example.com'}
-    assert_select '.settings-nav-item.active', text: /API documentation/
+    assert_select '.settings-nav-item.active', count: 1, text: /API documentation/
   end
 
   test 'LLM copy and plain text contain the complete spec with this installations URL and no token secrets' do
