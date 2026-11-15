@@ -3,6 +3,7 @@
 # them (Active Storage's own URLs stop working after five minutes, which left players blank).
 class GenerationOutputsController < ApplicationController
   include OutputServing
+  include AudioWaveformServing
 
   before_action :set_generation
 
@@ -11,6 +12,10 @@ class GenerationOutputsController < ApplicationController
     return head :not_found unless attachment
 
     serve_output(attachment, download: params[:download].present?)
+  end
+
+  def waveform
+    serve_audio_waveform(@generation.outputs.find_by(id: params[:attachment_id]))
   end
 
   # A video's first frame or a 3D model's preview.

@@ -1,6 +1,7 @@
 # Anonymous viewer for a single result via an unguessable token.
 class PublicSharesController < ApplicationController
   include OutputServing
+  include AudioWaveformServing
 
   layout 'bare'
   allow_unauthenticated_access
@@ -25,6 +26,10 @@ class PublicSharesController < ApplicationController
     return head :not_found unless attachment
 
     serve_output(attachment)
+  end
+
+  def waveform
+    serve_audio_waveform(@generation.outputs.order(:id)[params[:index].to_i])
   end
 
   # An audio result's album art, which lives on its own image result.
