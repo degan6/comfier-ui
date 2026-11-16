@@ -9,11 +9,6 @@ class MusicStylePresetsController < ApplicationController
 
   def new
     @preset = current_user.music_style_presets.new
-    return if params[:message_id].blank?
-
-    message = ChatMessage.assistant.succeeded.joins(:chat_conversation)
-                         .where(chat_conversations: { user_id: current_user.id }).find(params[:message_id])
-    @preset.description = message.content
   end
 
   def edit; end

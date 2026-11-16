@@ -153,10 +153,6 @@ no saved styles, **Create a music style** takes you to Settings; you can still t
 Existing songs and **Tweak** / **Run again** retain their own copy of the style, even after a preset is
 edited or deleted.
 
-When Chat is available, **Create with chat** starts a conversation to help describe the sound you want.
-Refine the description, then choose **Save as music preset** on the reply. Review the text, give it a name,
-and choose **Save preset**. You can also save a reply from an existing conversation this way.
-
 ### Notifications
 
 Comfier can tell you when something you made is ready, fails, or is cancelled, so you don't have to keep the page

@@ -3,9 +3,6 @@
 <p class="text-secondary">Save musical styles to reuse across songs. These presets are private to your account.</p>
 <div class="d-flex flex-wrap gap-2 mb-4">
   <%= link_to 'New preset', new_music_style_preset_path, class: 'btn btn-primary' %>
-  <% if LiteLlm::Client.configured? %>
-    <%= button_to 'Create with chat', chats_path, params: { purpose: 'music_style' }, class: 'btn btn-outline-secondary' %>
-  <% end %>
 </div>
 <% if @presets.empty? %>
   <p class="text-secondary">No music style presets yet. Create one to get started.</p>

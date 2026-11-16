@@ -16,29 +16,6 @@ class ChatTest < ActionDispatch::IntegrationTest
     @previous.each { |key, value| ENV[key] = value }
   end
 
-  test 'settings starts an owned preset drafting conversation with a queued reply' do
-    sign_in_as users(:alice)
-    get music_style_presets_path
-
-    assert_select 'button', text: 'Create with chat'
-    assert_enqueued_with(job: ChatReplyJob) do
-      post chats_path, params: { purpose: 'music_style' }
-    end
-    conversation = users(:alice).chat_conversations.order(:created_at).last
-
-    assert_redirected_to chat_path(conversation)
-    assert_match(/music style preset/, conversation.chat_messages.user.first.content)
-    assert_predicate conversation.chat_messages.assistant.first, :pending?
-  end
-
-  test 'assistant replies can be reviewed as music presets' do
-    sign_in_as users(:alice)
-    reply = chat_conversations(:alice_chat).chat_messages.create!(role: :assistant, content: 'Warm folk')
-    get chat_path(chat_conversations(:alice_chat))
-
-    assert_select 'a[href=?]', new_music_style_preset_path(message_id: reply.id), text: 'Save as music preset'
-  end
-
   test 'chat nav appears when LiteLLM is configured' do
     sign_in_as users(:alice)
     get image_studio_path

@@ -58,19 +58,6 @@ class MusicStylePresetsTest < ActionDispatch::IntegrationTest
     assert_equal 'Secret saxophone', @other.reload.description
   end
 
-  test 'can review an owned assistant reply as a preset but cannot import another users reply' do
-    reply = chat_conversations(:alice_chat).chat_messages.create!(role: :assistant, content: 'Acoustic warmth')
-    get new_music_style_preset_path(message_id: reply.id)
-
-    assert_response :success
-    assert_select 'textarea', text: 'Acoustic warmth'
-
-    sign_in_as users(:bob)
-    get new_music_style_preset_path(message_id: reply.id)
-
-    assert_response :not_found
-  end
-
   test 'audio studio offers only personal presets' do
     Workflow.create!(name: 'Music', kind: :audio, graph: {
                        '1' => { 'class_type' => 'Music',

@@ -10,13 +10,12 @@ class MusicStylePresetsSystemTest < ApplicationSystemTestCase
     Workflow.create!(name: 'Music remix', kind: :audio, graph: Workflow.find_by!(name: 'Music').graph)
   end
 
-  test 'saves a chat draft and applies a personal preset without replacing lyrics' do
+  test 'creates and applies a personal preset without replacing lyrics' do
     user = users(:alice)
-    reply = chat_conversations(:alice_chat).chat_messages.create!(role: :assistant, content: 'Gentle acoustic folk')
     sign_in_as user
-    visit new_music_style_preset_path(message_id: reply.id)
+    visit new_music_style_preset_path
 
-    assert_field 'Music style', with: 'Gentle acoustic folk'
+    fill_in 'Music style', with: 'Gentle acoustic folk'
     fill_in 'Name', with: 'My folk'
     click_on 'Save preset'
 
