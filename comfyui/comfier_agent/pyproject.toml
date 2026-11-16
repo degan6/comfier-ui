@@ -32,7 +32,9 @@ video = ["mlx-video @ git+https://github.com/kiarina/mlx-video.git@cbb2c10f2a253
 # Native Apple Silicon music generation (the mlx_audio engine). mlx-video already brings mlx-audio in through
 # mlx-vlm; this names the first release checked to carry MiniMax Music 3.
 audio = ["mlx-audio>=0.6.3"]
-# Everything a Mac needs: mflux, mlx-video, mlx-audio and 3D previews.
+# YuE2 requires native Python 3.12; pinned API and model layout.
+yue2 = ["mlx-yue @ git+https://github.com/vanch007/mlx-Yue.git@c5b5a8190f78c74aa671a4caa19dae8b8e04b3d8"]
+# Images, video, MiniMax and 3D previews. Install [yue2] in a separate environment (see README).
 mac = [
     "mflux>=0.22",
     "mlx-audio>=0.6.3",

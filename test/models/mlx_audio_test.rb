@@ -3,6 +3,80 @@ require 'test_helper'
 class MlxAudioTest < ActiveSupport::TestCase
   include EngineTestHelpers
 
+  test 'YuE2 presets render lyrics, quality and model requirements' do
+    %w[yue2-vocals yue2-instrumental].each do |preset|
+      workflow = engine_workflow!(preset:, name: preset)
+
+      assert_empty EngineRecipe.problems('mlx_audio', workflow.graph)
+      Generation::QUALITIES.zip([16, 32, 48]).each do |quality, steps|
+        generation = users(:alice).generations.create!(workflow:, prompt: 'Warm piano pop',
+                                                       lyrics: '[Verse] Exact words', seed: 42, quality:)
+        recipe = WorkflowRenderer.render(workflow.graph, generation.placeholder_values)
+
+        assert_empty EngineRecipe.problems('mlx_audio', recipe)
+        assert_equal steps, recipe['steps']
+        assert_equal 180, recipe['duration']
+        assert_equal '8bit', recipe['precision']
+        assert_equal(preset.end_with?('-vocals') ? '[Verse] Exact words' : '[Instrumental]', recipe['lyrics'])
+        assert_equal [EngineRecipe::YUE2_MODEL], workflow.recipe_models
+        assert_equal 32, EngineRecipe.min_memory_gb(workflow.graph)
+      end
+    end
+  end
+
+  test 'YuE2 validates its own controls and supplied score' do
+    recipe = EnginePreset.all.find { it.key == 'yue2-vocals' }.recipe
+
+    assert_empty EngineRecipe.problems('mlx_audio', recipe.merge('abc' => "X:1\nK:C\nC4|", 'cfg_scale' => 1.2))
+    [{ 'steps' => 65 }, { 'steps' => 1.5 }, { 'duration' => 361 }, { 'seed' => -1 },
+     { 'model' => EngineRecipe::MINIMAX_MODEL }, { 'style' => '' }, { 'lyrics' => '' },
+     { 'precision' => '4bit' }, { 'cot' => 'bad' }, { 'abc' => '' }, { 'abc' => 'X:1', 'cot' => 'off' },
+     { 'cfg_scale' => true }, { 'cfg_scale' => '{{cfg}}' }, { 'cfg_scale' => 21 },
+     { 'caption' => 'pop' }].each do |patch|
+      assert_not_empty EngineRecipe.problems('mlx_audio', recipe.merge(patch)), patch.inspect
+    end
+  end
+
+  test 'YuE2 presets carry the literal sampling defaults, which a recipe may leave out' do
+    recipe = EnginePreset.all.find { it.key == 'yue2-vocals' }.recipe
+    defaults = EngineRecipe::YUE2_SAMPLING_DEFAULTS.except('semantic_max_tokens')
+
+    assert_equal defaults, recipe.slice(*defaults.keys)
+    assert_empty EngineRecipe.problems('mlx_audio', recipe.except(*defaults.keys))
+  end
+
+  test 'YuE2 sampling rejects wrong types and values outside the native ranges' do
+    recipe = EnginePreset.all.find { it.key == 'yue2-vocals' }.recipe
+    invalid = { 'temperature' => [-0.1, 5.1, Float::NAN], 'top_p' => [0, 1.1, Float::INFINITY],
+                'top_k' => [0, 2.5], 'repetition_penalty' => [0, -1], 'penalty_window' => [0, 101],
+                'min_tokens' => [-1], 'max_tokens' => [0, 24_576] }
+    %w[abc semantic].each do |stage|
+      invalid.each do |control, values|
+        key = "#{stage}_#{control}"
+
+        (values + [nil, true, '{{cfg}}', '1', [], {}]).each do |value|
+          assert_not_empty EngineRecipe.problems('mlx_audio', recipe.merge(key => value)), "#{key}=#{value.inspect}"
+        end
+      end
+    end
+  end
+
+  test 'YuE2 checks token relationships and keeps omitted token limits compatible with short clips' do
+    recipe = EnginePreset.all.find { it.key == 'yue2-vocals' }.recipe
+
+    [{ 'abc_min_tokens' => 33, 'abc_max_tokens' => 32 },
+     { 'semantic_min_tokens' => 101, 'semantic_max_tokens' => 100 },
+     { 'semantic_max_tokens' => 4501 }, { 'semantic_min_tokens' => 4501 }].each do |patch|
+      assert_not_empty EngineRecipe.problems('mlx_audio', recipe.merge(patch)), patch.inspect
+    end
+    bare = recipe.except(*EngineRecipe::YUE2_SAMPLING_DEFAULTS.keys)
+
+    assert_empty EngineRecipe.problems('mlx_audio', bare.merge('duration' => 0.04))
+    assert_empty EngineRecipe.problems('mlx_audio', bare.merge('semantic_max_tokens' => 100))
+    assert_empty EngineRecipe.problems('mlx_audio', recipe.merge('abc_temperature' => 0, 'abc_top_p' => 1,
+                                                                 'abc_min_tokens' => 0, 'abc_max_tokens' => 1))
+  end
+
   test 'MiniMax presets render vocals or instrumentals with a useful fixed length and safe quality levels' do
     %w[minimax-music3-vocals minimax-music3-instrumental].each do |preset|
       workflow = engine_workflow!(preset:, name: preset)

@@ -414,7 +414,7 @@ module Admin
       end
       assert_select 'input[name="workflow[steps]"]'
       assert_select '[data-engine-form-target="audio"]:not(.d-none)',
-                    /Set semantic_guidance, acoustic_guidance and top_k directly in JSON/
+                    /For MiniMax, set semantic_guidance, acoustic_guidance and top_k directly in JSON/
 
       get new_admin_workflow_path(engine: 'mlx_video')
 

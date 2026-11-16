@@ -33,14 +33,30 @@ module Agent
       return "#{@backend.name} hasn't reported its engines yet" unless @backend.backend_inventory
       return "#{@backend.name} doesn't run #{@workflow.engine_info.label}" unless @backend.runs_engine?(@engine)
 
-      memory_reason || agent_reason
+      memory_reason || agent_reason || audio_runtime_reason
     end
 
     def agent_reason
+      if @engine == 'mlx_audio' && @workflow.graph['command'] == 'yue2' &&
+         !@backend.agent_at_least?(EngineRecipe::YUE2_AGENT)
+        return "#{@backend.name}'s agent is too old for YuE2; update it to #{EngineRecipe::YUE2_AGENT} or later"
+      end
       return unless EngineRecipe.wan_repo?(@workflow.graph) && !@backend.agent_at_least?(EngineRecipe::WAN_REPO_AGENT)
 
       "#{@backend.name}'s agent is too old to load Wan models from Hugging Face; update it to " \
         "#{EngineRecipe::WAN_REPO_AGENT} or later"
+    end
+
+    def audio_runtime_reason
+      return unless @engine == 'mlx_audio'
+
+      runtimes = @backend.engine_info(@engine)['runtimes']
+      command = @workflow.graph['command']
+      return if runtimes.blank? && command != 'yue2' # Older agents report only their MiniMax runtime.
+      return if runtimes&.dig(command, 'version').present?
+
+      name = command == 'yue2' ? 'YuE2' : 'MiniMax Music 3'
+      "#{@backend.name} needs the #{name} runtime; install it and run comfier-agent doctor"
     end
 
     def memory_reason

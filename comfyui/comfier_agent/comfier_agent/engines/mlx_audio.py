@@ -1,4 +1,4 @@
-"""Native MLX music, currently the tested MiniMax Music 3 BF16 pipeline."""
+"""Native MLX music, MiniMax Music 3 and YuE2 pipelines."""
 
 from __future__ import annotations
 
@@ -12,19 +12,19 @@ from typing import Any
 
 from comfier_agent.engines.base import JobCancelled, JobContext, JobError, ProgressFn
 from comfier_agent.engines.mlx import ChildProcess, MlxEngine
-from comfier_agent.workers.minimax_music import MODEL, validate
+from comfier_agent.workers.audio_worker import MODELS, validate
 
 LOG = logging.getLogger("comfier_agent")
 POLL_S = 0.5
 
 
 def default_worker_argv() -> list[str]:
-    return [sys.executable, "-m", "comfier_agent.workers.minimax_music"]
+    return [sys.executable, "-m", "comfier_agent.workers.audio_worker"]
 
 
 class MlxAudioEngine(MlxEngine):
     name = "mlx_audio"
-    command = re.compile(r"^minimax-music3$")
+    command = re.compile(r"^(minimax-music3|yue2)$")
 
     def __init__(self, config, runner_argv: list[str] | None = None):
         super().__init__(config)
@@ -47,7 +47,7 @@ class MlxAudioEngine(MlxEngine):
             self.ready = bool(self.version)
             self.models = sorted(data.get("models") or [])
             self.extra_info = {"catalog": data.get("catalog") or [], "revision": data.get("revision"),
-                               "runtime_error": data.get("error")}
+                               "runtime_error": data.get("error"), "runtimes": data.get("runtimes") or {}}
             self._refreshed_at = time.monotonic()
         except Exception as exc:
             self.ready = False
@@ -80,7 +80,7 @@ class MlxAudioEngine(MlxEngine):
             if event.get("event") == "loaded":
                 state["loaded"] = True
             elif event.get("event") == "done":
-                LOG.info("MiniMax generation: %s", line)
+                LOG.info("MLX audio generation: %s", line)
 
         self.process = ChildProcess("MLX audio", on_line=on_line)
         ctx.timings.mark_prompt()
@@ -101,7 +101,7 @@ class MlxAudioEngine(MlxEngine):
                     if time.monotonic() >= deadline:
                         reason = "timeout" if ctx.phase == "running" else "loading the model took too long"
                         raise JobError("execute", reason)
-                    # MiniMax has no reliable fraction; don't turn elapsed time into a percentage.
+                    # The audio pipelines have no reliable fraction; don't turn elapsed time into a percentage.
                     await progress(ctx, ctx.phase, 0.0)
                     await asyncio.wait({wait}, timeout=POLL_S)
                 if ctx.cancel_requested:
@@ -122,12 +122,12 @@ class MlxAudioEngine(MlxEngine):
         return outputs
 
     def download_argv(self, model: str) -> list[str]:
-        if model != MODEL:
-            raise ValueError(f"unsupported MiniMax model {model!r}")
+        if model not in MODELS:
+            raise ValueError(f"unsupported audio model {model!r}")
         return [*self.runner_argv, "--download", model]
 
     async def repos_for(self, model: str) -> list[str]:
-        return [MODEL] if model == MODEL else []
+        return [model] if model in MODELS else []
 
     async def cancel(self, ctx: JobContext) -> bool:
         if self.process:

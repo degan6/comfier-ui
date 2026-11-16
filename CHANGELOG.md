@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format follows
 - Rails 8.1.4.1 (security release), plus updates to every other gem, including crass 1.0.8, and Ruby 4.0.9.
 
 ### Added
+- **Audio**: YuE2 on the Mac agent, with vocal/instrumental presets, optional ABC score conditioning,
+  pinned MLX weights, and 48 kHz stereo WAV output. A separate Python 3.12 environment keeps YuE2
+  compatible with the existing MiniMax runtime; see the agent README for setup. Workflow JSON also exposes
+  independent score/audio sampling and repetition controls with validated token budgets and documented defaults.
 - **Audio**: result pages play audio through a waveform player with seeking, keyboard control, timestamps, playback
   speed and mute, on your own, shared and public result pages. A track's waveform is prepared once on the server the
   first time it's opened, a playing song carries on through page refreshes, and the browser's own controls stay
