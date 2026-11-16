@@ -47,7 +47,18 @@ class EnginePreset # rubocop:disable Metrics/ClassLength
     'semantic_guidance' => 1.5, 'acoustic_guidance' => 1.7, 'top_k' => 50
   }.freeze
 
+  YUE2 = {
+    'command' => 'yue2', 'model' => EngineRecipe::YUE2_MODEL, 'style' => '{{prompt}}',
+    'duration' => 180, 'steps' => '{{steps}}', 'seed' => '{{seed}}', 'min_memory_gb' => 32,
+    'precision' => '8bit', 'cot' => 'full'
+  }.freeze
+
   ALL = [
+    Preset.new(engine: 'mlx_audio', key: 'yue2-vocals', label: 'YuE2 vocals (up to 3 minutes, 32 GB)',
+               kind: 'audio', recipe: { **YUE2, 'lyrics' => '{{lyrics}}' }, settings: { 'steps' => 32 }),
+    Preset.new(engine: 'mlx_audio', key: 'yue2-instrumental', label: 'YuE2 instrumental (up to 3 minutes, 32 GB)',
+               kind: 'audio', recipe: { **YUE2, 'style' => '{{prompt}}, instrumental, no vocals',
+                                                'lyrics' => '[Instrumental]' }, settings: { 'steps' => 32 }),
     Preset.new(engine: 'mlx_audio', key: 'minimax-music3-vocals', label: 'MiniMax Music 3 vocals (60 seconds, 96 GB)',
                kind: 'audio', recipe: { **MINIMAX, 'lyrics' => '{{lyrics}}' }, settings: { 'steps' => 20 }),
     Preset.new(engine: 'mlx_audio', key: 'minimax-music3-instrumental',

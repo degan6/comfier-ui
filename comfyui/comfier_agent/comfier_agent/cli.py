@@ -126,7 +126,7 @@ def ask_secret(prompt: str) -> str:
 
 
 def cmd_setup(args) -> int:
-    from comfier_agent.engines import KNOWN, MLX_PACKAGES, installed
+    from comfier_agent.engines import KNOWN, MLX_PACKAGES, runtime_installed
 
     config = load_config(sidecar=True)
     saved = saved_settings(config)
@@ -139,7 +139,7 @@ def cmd_setup(args) -> int:
     key = (key or "").strip()
     name = args.name or (ask("Server name", config.backend_name) if interactive else config.backend_name)
 
-    detected = [n for n, pkg in MLX_PACKAGES.items() if installed(pkg)]
+    detected = [n for n, pkg in MLX_PACKAGES.items() if runtime_installed(n, pkg)]
     comfyui_url = args.comfyui_url
     if comfyui_url is None and interactive:
         comfyui_url = ask("ComfyUI URL ('none' if this machine doesn't run ComfyUI)", comfyui_default(saved, detected))
@@ -377,7 +377,14 @@ def cmd_doctor(_args) -> int:
     names = engine_names(config)
     report(bool(names), f"Engines: {', '.join(names) or 'none'}")
     for name, package in MLX_PACKAGES.items():
-        if name in names:
+        if name == "mlx_audio" and name in names:
+            from comfier_agent.workers.audio_worker import probe
+
+            audio = probe()
+            report(bool(audio.get("version")), f"mlx_audio: {audio.get('version') or audio.get('error')}")
+            for command, runtime in audio["runtimes"].items():
+                report(None, f"  {command}: {runtime.get('version') or runtime.get('error')}")
+        elif name in names:
             ok = installed(package)
             version = package_version(package) if ok else None
             report(ok, f"{name}: " + (f"{package} {version}" if ok else f"the {package} package isn't installed"))

@@ -12,16 +12,19 @@ module EngineRecipe # rubocop:disable Metrics/ModuleLength
   COMMANDS = {
     'mflux' => /\Amflux-generate[a-z0-9.-]*\z/,
     'mlx_video' => /\Amlx_video(\.[a-z0-9_]+)+\z/,
-    'mlx_audio' => /\Aminimax-music3\z/
+    'mlx_audio' => /\A(?:minimax-music3|yue2)\z/
   }.freeze
   COMMAND_HINTS = {
     'mflux' => 'an mflux command such as mflux-generate-z-image-turbo',
     'mlx_video' => 'an mlx-video module such as mlx_video.ltx_2.generate',
-    'mlx_audio' => 'minimax-music3'
+    'mlx_audio' => 'minimax-music3 or yue2'
   }.freeze
   MINIMAX_MODEL = 'mlx-community/MiniMax-Music3-bf16'.freeze
   MINIMAX_CONTROLS = { 'semantic_guidance' => 0..10, 'acoustic_guidance' => 0..10, 'top_k' => 1..16_384 }.freeze
   MINIMAX_OPTIONS = (%w[command model caption lyrics duration steps seed min_memory_gb] + MINIMAX_CONTROLS.keys).freeze
+  YUE2_AGENT = '0.4.18'.freeze
+  YUE2_MODEL = 'vanch007/mlx-Yue2-3B'.freeze
+  YUE2_OPTIONS = %w[command model style lyrics duration steps seed min_memory_gb precision cot abc cfg_scale].freeze
   KEY = /\A[a-z][a-z0-9_]*\z/
   # The Gemma 3 text encoder LTX-2.3 is known to work with in mlx-video.
   LTX_TEXT_ENCODER = 'mlx-community/gemma-3-12b-it-bf16'.freeze
@@ -59,8 +62,9 @@ module EngineRecipe # rubocop:disable Metrics/ModuleLength
     found
   end
 
-  # The audio worker deliberately exposes only the tested MiniMax BF16 pipeline.
   def mlx_audio_problems(recipe)
+    return yue2_problems(recipe) if recipe['command'] == 'yue2'
+
     found = []
     found << "needs \"model\": #{MINIMAX_MODEL}" unless recipe['model'] == MINIMAX_MODEL
     (recipe.keys - MINIMAX_OPTIONS).each { found << "unsupported MiniMax option: #{it}" }
@@ -68,6 +72,34 @@ module EngineRecipe # rubocop:disable Metrics/ModuleLength
       found << "needs \"#{key}\"" unless recipe[key].is_a?(String) && recipe[key].present?
     end
     found + minimax_numeric_problems(recipe) + minimax_control_problems(recipe)
+  end
+
+  def yue2_problems(recipe)
+    found = []
+    found << "needs \"model\": #{YUE2_MODEL}" unless recipe['model'] == YUE2_MODEL
+    (recipe.keys - YUE2_OPTIONS).each { found << "unsupported YuE2 option: #{it}" }
+    %w[style lyrics].each do |key|
+      found << "needs \"#{key}\"" unless recipe[key].is_a?(String) && recipe[key].present?
+    end
+    found + audio_numeric_problems(recipe, 'duration' => 0.04..360, 'steps' => 1..64,
+                                           'seed' => 0..Generation::MAX_SEED) + yue2_control_problems(recipe)
+  end
+
+  def yue2_control_problems(recipe)
+    found = []
+    found << '"precision" must be 8bit or bf16' unless [nil, '8bit', 'bf16'].include?(recipe['precision'])
+    found << '"cot" must be full, melody or off' unless [nil, 'full', 'melody', 'off'].include?(recipe['cot'])
+    found << '"abc" needs nonempty notation and cot full or melody' if recipe.key?('abc') && !valid_yue2_abc?(recipe)
+    if recipe.key?('cfg_scale') && !valid_yue2_guidance?(recipe['cfg_scale'])
+      found << '"cfg_scale" must be a number between 0 and 20; use a literal JSON value'
+    end
+    found
+  end
+
+  def valid_yue2_guidance?(value) = value.is_a?(Numeric) && (0..20).cover?(value)
+
+  def valid_yue2_abc?(recipe)
+    recipe['cot'] != 'off' && recipe['abc'].is_a?(String) && recipe['abc'].present?
   end
 
   # Audio guidance is literal JSON, independent of the generic guidance field and {{cfg}}.
@@ -81,7 +113,11 @@ module EngineRecipe # rubocop:disable Metrics/ModuleLength
   end
 
   def minimax_numeric_problems(recipe)
-    { 'duration' => 0.04..300, 'steps' => 1..30, 'seed' => 0..Generation::MAX_SEED }.filter_map do |key, range|
+    audio_numeric_problems(recipe, 'duration' => 0.04..300, 'steps' => 1..30, 'seed' => 0..Generation::MAX_SEED)
+  end
+
+  def audio_numeric_problems(recipe, ranges)
+    ranges.filter_map do |key, range|
       value = recipe[key]
       next if value == "{{#{key}}}"
       next if value.is_a?(Numeric) && range.cover?(value) && (key == 'duration' || value.is_a?(Integer))

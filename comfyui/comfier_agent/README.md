@@ -104,7 +104,7 @@ Environment variables override `comfier_agent.json`.
 | `HF_PROXY_TOKEN_HEADER` | `X-Proxy-Token` | Header name for `HF_PROXY_TOKEN`. |
 | `COMFIER_USE_HF_CLI` | `true` | Use the `hf` / `huggingface-cli` tool for Hub `/resolve/` links (falls back to HTTP). |
 | `COMFIER_MAX_CONCURRENT_DOWNLOADS` | `1` | Parallel model downloads (`0` = no limit). |
-| `COMFIER_ENGINES` | detected | Comma-separated engines to run: `comfyui`, `mflux`, `mlx_video`, `mlx_audio`. Default: ComfyUI plus whichever of mflux and mlx-video are installed. Leave out `comfyui` on a Mac that doesn't run it. |
+| `COMFIER_ENGINES` | detected | Comma-separated engines to run: `comfyui`, `mflux`, `mlx_video`, `mlx_audio`. Default: ComfyUI plus whichever native image, video and audio runtimes are installed. Leave out `comfyui` on a Mac that doesn't run it. |
 | `COMFIER_WORK_DIR` | `~/.comfier/work` | Where mflux and mlx-video jobs keep their inputs and results while they run. |
 | `COMFIER_MLX_IDLE_UNLOAD_MINUTES` | `10` | Unload mflux's model after this long without a job (`0` keeps it loaded). |
 | `COMFIER_MLX_VIDEO_IDLE_UNLOAD_MINUTES` | `10` | Unload MLX video's models after this long without a job (`0` keeps them loaded). Independent of the mflux timer. |
@@ -330,3 +330,56 @@ An MP3 export failure keeps the WAV. Effective model/runtime versions, seed, ste
 are written to the agent's log when each job finishes.
 Review the [MiniMax model license](https://huggingface.co/mlx-community/MiniMax-Music3-bf16/blob/main/LICENSE)
 when installing the weights. YuE2 and score planning are not implemented in this engine yet.
+
+## YuE2 on Apple Silicon
+
+Agent 0.4.18 or later also runs [YuE2 through mlx-Yue](https://github.com/vanch007/mlx-Yue).
+The `mlx_audio` engine generates 48 kHz stereo music from a style prompt and lyrics, with optional ABC score conditioning.
+The presets use 8-bit planning, BF16 acoustic synthesis, and a three-minute maximum. Start with a Mac
+with 32 GB of memory; this is a conservative scheduling threshold, not a measured guarantee.
+
+YuE2's pinned runtime requires Python 3.12 and MLX 0.32.2, which conflicts with MiniMax's newer MLX.
+Install it in a separate environment, from the repository root:
+
+```sh
+uv venv --python 3.12 ~/.comfier/yue2
+uv pip install --python ~/.comfier/yue2/bin/python './comfyui/comfier_agent[yue2]'
+```
+
+The agent detects `~/.comfier/yue2/bin/python` automatically. To use another location, set
+`COMFIER_YUE2_PYTHON` to its absolute Python path in the agent process's environment. This environment
+needs the `comfier-agent[yue2]` package as well as the MLX runtime; it does not need mflux or mlx-video.
+The `[mac]` extra continues to install the image, video and MiniMax runtimes in the main environment.
+Run `comfier-agent setup` again to enable `mlx_audio`, or add it to the existing `engines` setting,
+then restart the agent. `comfier-agent doctor` reports each music runtime independently.
+
+In **Settings → Workflows**, choose **MLX audio** and the **YuE2 vocals** or **YuE2 instrumental** preset.
+Download `vanch007/mlx-Yue2-3B` from the server's model controls, or prefetch it in the agent's environment:
+
+```sh
+~/.comfier/yue2/bin/python -m comfier_agent.workers.yue2 --download vanch007/mlx-Yue2-3B
+```
+
+The worker pins model revision `5f7620e546fb3c6130a09a7e18172e3bb7aaeddb` and mlx-Yue commit
+`c5b5a8190f78c74aa671a4caa19dae8b8e04b3d8`. The download includes both AR precisions, the acoustic
+model and VAE (about 10.5 GB); BF16 AR weights are also required for acoustic conditioning in 8-bit mode.
+Use the same `HF_HOME` / `HF_HUB_CACHE` for prefetching and running the agent. Complete cached snapshots
+work offline. The worker materializes temporary hardlinks for the pipeline's integrity checks; across
+filesystems it falls back to copies, requiring another 10.5 GB of free space during a job.
+
+The recipe accepts these controls:
+
+- `style` and `lyrics`: normally `{{prompt}}` and `{{lyrics}}`. Instrumental presets use `[Instrumental]`.
+- `duration`: maximum seconds, from 0.04 to 360, expressed as a 25 Hz semantic token budget. Songs may end sooner.
+- `steps`: acoustic refinement steps, from 1 to 64. The presets use `{{steps}}` with a base of 32,
+  giving Fast/Standard/Best 16/32/48 steps.
+- `seed`: the usual `{{seed}}`, preserved through planning and synthesis.
+- `precision`: `8bit` (default) or `bf16` for the planning model.
+- `cot`: `full` (default, melody and chords), `melody`, or `off` for direct generation.
+  This setting does not select instrumental music.
+- `abc`: optional nonempty ABC notation, with `cot` set to `full` or `melody`.
+- `cfg_scale`: optional literal guidance from 0 to 20. Omit it to keep YuE2's mode-specific defaults.
+
+Jobs use the same GPU lock, load/run timeouts, cancellation and uploads as the other Mac engines.
+The master recording is a 24-bit WAV. Review the [model license and notices](https://huggingface.co/vanch007/mlx-Yue2-3B)
+before use.

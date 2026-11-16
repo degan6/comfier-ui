@@ -19,6 +19,12 @@ def installed(package: str) -> bool:
         return False
 
 
+def runtime_installed(name: str, package: str) -> bool:
+    from comfier_agent.workers.audio_worker import yue2_installed
+
+    return installed(package) or (name == "mlx_audio" and (installed("lyra") or yue2_installed()))
+
+
 def engine_names(config) -> list[str]:
     """The configured engines, or ComfyUI plus whichever MLX tools are installed."""
     if config.engines:
@@ -26,7 +32,7 @@ def engine_names(config) -> list[str]:
         if unknown:
             LOG.warning("ignoring unknown engines: %s", ", ".join(unknown))
         return [n for n in KNOWN if n in config.engines]
-    return ["comfyui", *(name for name, pkg in MLX_PACKAGES.items() if installed(pkg))]
+    return ["comfyui", *(name for name, pkg in MLX_PACKAGES.items() if runtime_installed(name, pkg))]
 
 
 def build_engines(config, comfy) -> dict:
@@ -48,7 +54,7 @@ def build_engines(config, comfy) -> dict:
             from comfier_agent.engines.mlx_audio import MlxAudioEngine
 
             engines[name] = MlxAudioEngine(config)
-        if name in MLX_PACKAGES and not installed(MLX_PACKAGES[name]):
+        if name in MLX_PACKAGES and not runtime_installed(name, MLX_PACKAGES[name]):
             LOG.warning("%s is enabled but the %s package isn't installed; its jobs will fail", name,
                         MLX_PACKAGES[name])
     return engines

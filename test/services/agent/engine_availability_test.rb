@@ -9,6 +9,40 @@ module Agent
       @backend = create_agent_backend!(owner: users(:alice))
     end
 
+    test 'YuE2 requires a current agent and its own runtime before offering downloads' do
+      workflow = engine_workflow!(name: 'YuE2', preset: 'yue2-vocals')
+      bring_mac_online!(@backend, engines: { mlx_audio: { models: [], runtimes: {
+                          'yue2' => { version: '0.1.0' }
+                        } } }, ram_gb: 32)
+      result = Availability.compute(workflow, @backend.reload)
+
+      assert_predicate result, :ready?
+      assert_equal [EngineRecipe::YUE2_MODEL], result.models.pluck('filename')
+      @backend.update!(agent_version: '0.4.17')
+
+      assert_match 'too old for YuE2', Availability.compute(workflow, @backend).reasons.first
+      @backend.update!(agent_version: EngineRecipe::YUE2_AGENT)
+      bring_mac_online!(@backend, engines: { mlx_audio: { models: [], runtimes: {
+                          'yue2' => { error: 'not installed' }, 'minimax-music3' => { version: '0.6.3' }
+                        } } })
+      result = Availability.compute(workflow, @backend.reload)
+
+      assert_predicate result, :blocked?
+      assert_match 'needs the YuE2 runtime', result.reasons.first
+      assert_empty result.models
+    end
+
+    test 'a YuE2-only Mac does not offer MiniMax workflows' do
+      workflow = engine_workflow!(name: 'MiniMax', preset: 'minimax-music3-vocals')
+      bring_mac_online!(@backend, engines: { mlx_audio: { models: [], runtimes: {
+                          'yue2' => { version: '0.1.0' }, 'minimax-music3' => { error: 'not installed' }
+                        } } }, ram_gb: 128)
+      result = Availability.compute(workflow, @backend.reload)
+
+      assert_predicate result, :blocked?
+      assert_match 'needs the MiniMax Music 3 runtime', result.reasons.first
+    end
+
     test 'a Mac that runs mflux and has the model is ready' do
       bring_mac_online!(@backend, engines: { mflux: { models: %w[z-image-turbo] } })
       result = Availability.compute(@workflow, @backend.reload)

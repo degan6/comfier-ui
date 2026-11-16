@@ -34,7 +34,9 @@
           with less memory. The agent sets the output path.
         </div>
         <div class="form-text text-12 <%= 'd-none' unless workflow.engine_mlx_audio? %>" data-engine-form-target="audio">
-          Set <code>semantic_guidance</code>, <code>acoustic_guidance</code> and <code>top_k</code> directly in JSON.
+          For MiniMax, set <code>semantic_guidance</code>, <code>acoustic_guidance</code> and <code>top_k</code> directly in JSON.
+          For YuE2, set <code>cot</code> to <code>full</code>, <code>melody</code> or <code>off</code>,
+          and optionally supply <code>abc</code> notation and <code>cfg_scale</code>.
           Quality adjusts refinement steps only; it does not change guidance or top-k.
         </div>
       </div>
