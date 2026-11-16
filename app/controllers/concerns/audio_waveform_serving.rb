@@ -15,7 +15,6 @@ module AudioWaveformServing
 
   def waveform_pending_or_failed(status)
     response.headers['Cache-Control'] = 'no-store'
-    response.headers['Retry-After'] = '2' if status == 'pending'
     render json: { status: }, status: status == 'pending' ? :accepted : :unprocessable_content
   end
 end

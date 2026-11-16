@@ -11,16 +11,25 @@ class AudioWaveform
     value if value && value['version'] == VERSION
   end
 
+  # The saved data, asking for it to be prepared first when there's none. Only that first ask takes the lock, so
+  # the players waiting on it are answered straight away.
   def self.request(blob)
+    return data(blob) if settled?(blob)
+
     blob.with_lock do
-      value = data(blob)
-      return value if value && (value['status'] != 'pending' || Time.iso8601(value['requested_at']) > 5.minutes.ago)
+      next data(blob) if settled?(blob)
 
       value = { 'version' => VERSION, 'status' => 'pending', 'requested_at' => Time.current.iso8601 }
       blob.update!(metadata: blob.metadata.merge(KEY => value))
       GenerateAudioWaveformJob.perform_later(blob)
       value
     end
+  end
+
+  # Ready, failed, or asked for recently enough that its job should still be on the way.
+  def self.settled?(blob)
+    value = data(blob)
+    value.present? && (value['status'] != 'pending' || Time.iso8601(value['requested_at']) > 5.minutes.ago)
   end
 
   def self.generate(blob)

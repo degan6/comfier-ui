@@ -53,7 +53,6 @@ class Generation < ApplicationRecord # rubocop:disable Metrics/ClassLength
   after_update_commit -> { broadcast_replace_later_to [user, :generations] }
   after_update_commit -> { broadcast_refresh_later_to self }, unless: :only_bookkeeping_changed?
   after_update_commit :cleanup_backend_run, if: :saved_change_to_status?
-  after_update_commit :enqueue_audio_waveforms, if: -> { saved_change_to_status?(to: 'succeeded') && audio? }
   after_commit -> { broadcast_queue_updates }
   after_destroy_commit -> { broadcast_remove_to [user, :generations] }
 
@@ -125,10 +124,6 @@ class Generation < ApplicationRecord # rubocop:disable Metrics/ClassLength
   end
 
   private
-
-  def enqueue_audio_waveforms
-    outputs.select { it.content_type.to_s.start_with?('audio/') }.each { AudioWaveform.request(it.blob) }
-  end
 
   def only_bookkeeping_changed?
     changed = saved_changes.keys - ['updated_at']

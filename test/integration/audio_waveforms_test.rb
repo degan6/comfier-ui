@@ -5,7 +5,7 @@ class AudioWaveformsTest < ActionDispatch::IntegrationTest
     @generation = generations(:alice_done)
     @generation.outputs.attach(io: StringIO.new(wav_audio), filename: 'song.wav', content_type: 'audio/wav')
     @output = @generation.outputs.last
-    @data = { 'version' => 1, 'status' => 'ready', 'duration' => 4.0, 'peaks' => [[0.1, 0.2, 0.1]] }
+    @data = { 'version' => AudioWaveform::VERSION, 'status' => 'ready', 'duration' => 4.0, 'peaks' => [[0.1, 0.2, 0.1]] }
     @output.blob.update!(metadata: @output.blob.metadata.merge(AudioWaveform::KEY => @data))
     @path = waveform_generation_path(@generation, @output)
     sign_in_as users(:alice)
@@ -48,6 +48,19 @@ class AudioWaveformsTest < ActionDispatch::IntegrationTest
     get path
 
     assert_response :not_found
+  end
+
+  test 'other outputs have no waveform, and a failed one says so without being cached' do
+    @generation.outputs.attach(io: StringIO.new('png'), filename: 'art.png', content_type: 'image/png')
+    get waveform_generation_path(@generation, @generation.outputs.order(:id).last)
+
+    assert_response :not_found
+    failed = { 'version' => AudioWaveform::VERSION, 'status' => 'failed' }
+    @output.blob.update!(metadata: { AudioWaveform::KEY => failed })
+    get @path
+
+    assert_response :unprocessable_content
+    assert_equal 'no-store', response.headers['Cache-Control']
   end
 
   test 'old audio is prepared once on demand and the pending response is not cached' do

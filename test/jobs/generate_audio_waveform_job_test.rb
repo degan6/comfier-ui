@@ -7,6 +7,7 @@ class GenerateAudioWaveformJobTest < ActiveJob::TestCase
   end
 
   test 'saves bounded amplitude data with the audio and reuses it on later requests' do
+    skip 'ffmpeg required' unless ffmpeg_available?
     GenerateAudioWaveformJob.perform_now(@blob)
     data = AudioWaveform.data(@blob.reload)
 
@@ -24,19 +25,6 @@ class GenerateAudioWaveformJobTest < ActiveJob::TestCase
     end
   end
 
-  test 'finishing a music generation queues preparation for each audio output' do
-    workflow = Workflow.create!(name: 'Music', kind: 'audio',
-                                graph: { '1' => { 'class_type' => 'Music', 'inputs' => { 'text' => '{{prompt}}' } } })
-    generation = users(:alice).generations.create!(workflow:, prompt: 'Two songs')
-    2.times do |index|
-      generation.outputs.attach(io: StringIO.new(wav_audio), filename: "song#{index}.wav", content_type: 'audio/wav')
-    end
-
-    assert_enqueued_jobs 2, only: GenerateAudioWaveformJob do
-      generation.succeed!
-    end
-  end
-
   test 'requests enqueue once and a stale pending request can recover' do
     assert_enqueued_with(job: GenerateAudioWaveformJob, args: [@blob]) { AudioWaveform.request(@blob) }
     assert_no_enqueued_jobs(only: GenerateAudioWaveformJob) { AudioWaveform.request(@blob.reload) }
@@ -46,7 +34,15 @@ class GenerateAudioWaveformJobTest < ActiveJob::TestCase
     end
   end
 
+  test 'without ffmpeg the request stays pending, so a later view can ask again' do
+    AudioWaveform.request(@blob)
+    with_env('FFMPEG' => '/missing/ffmpeg') { GenerateAudioWaveformJob.perform_now(@blob) }
+
+    assert_equal 'pending', AudioWaveform.data(@blob.reload)['status']
+  end
+
   test 'bad audio records failure and later views do not repeatedly decode it' do
+    skip 'ffmpeg required' unless ffmpeg_available?
     bad = ActiveStorage::Blob.create_and_upload!(io: StringIO.new('broken'), filename: 'bad.mp3',
                                                  content_type: 'audio/mpeg')
     GenerateAudioWaveformJob.perform_now(bad)
