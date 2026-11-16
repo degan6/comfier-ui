@@ -21,7 +21,7 @@ module Agent
       @backend.update!(agent_version: '0.4.17')
 
       assert_match 'too old for YuE2', Availability.compute(workflow, @backend).reasons.first
-      @backend.update!(agent_version: EngineRecipe::YUE2_SAMPLING_AGENT)
+      @backend.update!(agent_version: EngineRecipe::YUE2_AGENT)
       bring_mac_online!(@backend, engines: { mlx_audio: { models: [], runtimes: {
                           'yue2' => { error: 'not installed' }, 'minimax-music3' => { version: '0.6.3' }
                         } } })
@@ -30,19 +30,6 @@ module Agent
       assert_predicate result, :blocked?
       assert_match 'needs the YuE2 runtime', result.reasons.first
       assert_empty result.models
-    end
-
-    test 'YuE2 sampling controls require the newer agent while legacy recipes still work' do
-      workflow = engine_workflow!(name: 'YuE2 controls', preset: 'yue2-vocals')
-      bring_mac_online!(@backend, engines: { mlx_audio: { models: [], runtimes: {
-                          'yue2' => { version: '0.1.0' }
-                        } } }, ram_gb: 32)
-      @backend.update!(agent_version: EngineRecipe::YUE2_AGENT)
-
-      assert_match '0.4.19 or later', Availability.compute(workflow, @backend).reasons.first
-      workflow.update!(graph: workflow.graph.except(*EngineRecipe::YUE2_SAMPLING_DEFAULTS.keys))
-
-      assert_predicate Availability.compute(workflow, @backend), :ready?
     end
 
     test 'a YuE2-only Mac does not offer MiniMax workflows' do

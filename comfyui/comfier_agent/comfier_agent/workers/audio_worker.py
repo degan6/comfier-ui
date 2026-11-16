@@ -24,9 +24,9 @@ def yue2_python() -> str:
 
 
 def yue2_installed() -> bool:
-    configured = os.environ.get("COMFIER_YUE2_PYTHON")
-    return bool(shutil.which(os.path.expanduser(configured))) if configured else Path(
-        "~/.comfier/yue2/bin/python").expanduser().is_file()
+    """Whether YuE2 has an interpreter of its own, apart from the agent's."""
+    python = yue2_python()
+    return python != sys.executable and bool(shutil.which(python))
 
 
 def worker_argv(worker) -> list[str]:

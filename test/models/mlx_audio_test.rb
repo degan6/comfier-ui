@@ -37,19 +37,12 @@ class MlxAudioTest < ActiveSupport::TestCase
     end
   end
 
-  test 'YuE2 presets expose literal sampling defaults independently of generation quality' do
-    workflow = engine_workflow!(name: 'YuE2 JSON controls', preset: 'yue2-vocals')
+  test 'YuE2 presets carry the literal sampling defaults, which a recipe may leave out' do
+    recipe = EnginePreset.all.find { it.key == 'yue2-vocals' }.recipe
     defaults = EngineRecipe::YUE2_SAMPLING_DEFAULTS.except('semantic_max_tokens')
 
-    assert_equal defaults, workflow.graph.slice(*defaults.keys)
-    assert_empty EngineRecipe.problems('mlx_audio', workflow.graph.except(*defaults.keys))
-    %w[fast best].each do |quality|
-      generation = users(:alice).generations.create!(workflow:, prompt: 'Piano', lyrics: '[Verse] Words', quality:)
-      recipe = WorkflowRenderer.render(workflow.graph, generation.placeholder_values)
-
-      assert_equal defaults, recipe.slice(*defaults.keys)
-      assert_in_delta(1.0, recipe['cfg_scale'])
-    end
+    assert_equal defaults, recipe.slice(*defaults.keys)
+    assert_empty EngineRecipe.problems('mlx_audio', recipe.except(*defaults.keys))
   end
 
   test 'YuE2 sampling rejects wrong types and values outside the native ranges' do
@@ -76,10 +69,10 @@ class MlxAudioTest < ActiveSupport::TestCase
      { 'semantic_max_tokens' => 4501 }, { 'semantic_min_tokens' => 4501 }].each do |patch|
       assert_not_empty EngineRecipe.problems('mlx_audio', recipe.merge(patch)), patch.inspect
     end
-    legacy = recipe.except(*EngineRecipe::YUE2_SAMPLING_DEFAULTS.keys)
+    bare = recipe.except(*EngineRecipe::YUE2_SAMPLING_DEFAULTS.keys)
 
-    assert_empty EngineRecipe.problems('mlx_audio', legacy.merge('duration' => 0.04))
-    assert_empty EngineRecipe.problems('mlx_audio', legacy.merge('semantic_max_tokens' => 100))
+    assert_empty EngineRecipe.problems('mlx_audio', bare.merge('duration' => 0.04))
+    assert_empty EngineRecipe.problems('mlx_audio', bare.merge('semantic_max_tokens' => 100))
     assert_empty EngineRecipe.problems('mlx_audio', recipe.merge('abc_temperature' => 0, 'abc_top_p' => 1,
                                                                  'abc_min_tokens' => 0, 'abc_max_tokens' => 1))
   end

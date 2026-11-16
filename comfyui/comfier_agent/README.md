@@ -329,11 +329,11 @@ invented percentage. The worker preserves the explicit seed and the runtime's ac
 An MP3 export failure keeps the WAV. Effective model/runtime versions, seed, steps, duration and memory metrics
 are written to the agent's log when each job finishes.
 Review the [MiniMax model license](https://huggingface.co/mlx-community/MiniMax-Music3-bf16/blob/main/LICENSE)
-when installing the weights. YuE2 and score planning are not implemented in this engine yet.
+when installing the weights.
 
 ## YuE2 on Apple Silicon
 
-Agent 0.4.18 or later also runs [YuE2 through mlx-Yue](https://github.com/vanch007/mlx-Yue).
+Agent 0.4.19 or later also runs [YuE2 through mlx-Yue](https://github.com/vanch007/mlx-Yue).
 The `mlx_audio` engine generates 48 kHz stereo music from a style prompt and lyrics, with optional ABC score conditioning.
 The presets use 8-bit planning, BF16 acoustic synthesis, and a three-minute maximum. Start with a Mac
 with 32 GB of memory; this is a conservative scheduling threshold, not a measured guarantee.
@@ -383,7 +383,7 @@ The recipe accepts these controls:
 
 ### YuE2 score and audio sampling in workflow JSON
 
-Agent **0.4.19 or later** accepts the following independent sampling controls. Prefix each field with
+Each stage has its own sampling controls. Prefix each field with
 `abc_` for score composition or `semantic_` for audio-token generation. These are literal JSON numbers
 in the admin workflow recipe, independent of generation Quality or the hidden generic guidance field.
 No new end-user generation controls are added. Omitted fields preserve the original pipeline defaults.
@@ -397,26 +397,6 @@ No new end-user generation controls are added. Omitted fields preserve the origi
 | `penalty_window` | 100 | 50 | Integer, 1–100 tokens |
 | `min_tokens` | 32 | `min(200, effective semantic_max_tokens)` | Integer, 0–24575, no greater than the stage's maximum |
 | `max_tokens` | 4096 | `max(1, floor(duration * 25))` | Integer, 1–24575; audio is additionally capped by duration |
-
-For example, these fields can be added to either vocal or instrumental recipes:
-
-```json
-{
-  "abc_temperature": 0.7,
-  "abc_top_p": 0.9,
-  "abc_top_k": 30,
-  "abc_repetition_penalty": 1.005,
-  "abc_penalty_window": 100,
-  "abc_min_tokens": 32,
-  "abc_max_tokens": 4096,
-  "semantic_temperature": 1.0,
-  "semantic_top_p": 0.95,
-  "semantic_top_k": 100,
-  "semantic_repetition_penalty": 1.2,
-  "semantic_penalty_window": 50,
-  "semantic_min_tokens": 200
-}
-```
 
 Presets include these defaults so admins can discover and edit them directly. `semantic_max_tokens`
 is omitted from presets so changing `duration` adjusts the upper bound automatically. An explicit

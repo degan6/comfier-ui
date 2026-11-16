@@ -70,6 +70,7 @@ def validate(recipe: dict) -> None:
 
 def sampling_settings(recipe: dict) -> dict:
     """Resolve literal workflow controls without importing the optional MLX runtime."""
+    # Audio is 25 semantic tokens a second. Comfier's EngineRecipe.yue2_sampling_limit_problems mirrors these limits.
     limit = max(1, int(recipe["duration"] * 25))
     stages = {}
     for stage, defaults in SAMPLING_DEFAULTS.items():

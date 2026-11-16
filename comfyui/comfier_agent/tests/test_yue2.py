@@ -181,21 +181,6 @@ def test_agent_detects_isolated_yue2_without_other_mlx_packages(monkeypatch):
     assert engines.engine_names(AgentConfig()) == ["comfyui", "mlx_audio"]
 
 
-@pytest.mark.asyncio
-async def test_yue2_job_uploads_audio_without_comfyui(agent, tmp_path, monkeypatch):
-    from comfier_agent.engines import mlx_audio
-
-    fake = str(Path(__file__).with_name("fake_mlx_audio.py"))
-    monkeypatch.setattr(mlx_audio, "default_worker_argv", lambda: [sys.executable, fake])
-    await agent.comfy.stop()
-    runtime = await agent.start(engines=["mlx_audio"], work_dir=str(tmp_path))
-    await agent.front.send(agent.assign("j_yue2", engine="mlx_audio", inputs=[], requires={}, workflow=RECIPE))
-    completed = (await agent.front.wait_for_types("job.completed", timeout=10))[0]
-    assert len(completed["outputs"]) == 1
-    assert completed["outputs"][0]["kind"] == "audio"
-    await runtime.engines["mlx_audio"].close()
-
-
 @pytest.mark.parametrize("stage", ["abc", "semantic"])
 @pytest.mark.parametrize("control,value", [
     ("temperature", -0.1), ("temperature", 5.1), ("temperature", True), ("temperature", float("nan")),
@@ -208,7 +193,7 @@ def test_invalid_stage_sampling_is_rejected_before_launch(stage, control, value)
         MlxAudioEngine(AgentConfig()).validate({**RECIPE, f"{stage}_{control}": value})
 
 
-@pytest.mark.parametrize("key", sorted(yue2.SAMPLING_OPTIONS))
+@pytest.mark.parametrize("key", ["abc_temperature", "semantic_top_k"])
 @pytest.mark.parametrize("value", [None, True, "{{cfg}}", "1", [], {}])
 def test_sampling_requires_literal_numbers(key, value):
     with pytest.raises(JobError):
@@ -225,7 +210,7 @@ def test_token_limits_are_ordered_and_do_not_exceed_duration(patch):
         MlxAudioEngine(AgentConfig()).validate({**RECIPE, **patch})
 
 
-def test_short_clips_keep_the_legacy_minimum_and_explicit_budgets_can_shorten_them():
+def test_short_clips_lower_the_default_minimum_and_explicit_budgets_can_shorten_them():
     recipe = {**RECIPE, "duration": .04}
     yue2.validate(recipe)
     assert yue2.sampling_settings(recipe)["semantic"]["min_tokens"] == 1

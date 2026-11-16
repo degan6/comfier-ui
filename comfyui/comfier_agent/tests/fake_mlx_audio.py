@@ -21,9 +21,9 @@ else:
     data = json.loads(args.request.read_text())
     print(json.dumps({'event': 'loaded'}), flush=True)
     time.sleep(.7)
-    if data.get('caption', data.get('style')) == 'hang':
+    if data['caption'] == 'hang':
         time.sleep(60)
-    if data.get('caption', data.get('style')) == 'fail':
+    if data['caption'] == 'fail':
         raise ValueError('bad native waveform')
     with wave.open(str(args.output), 'wb') as out:
         out.setparams((2, 2, 44100, 0, 'NONE', 'not compressed'))

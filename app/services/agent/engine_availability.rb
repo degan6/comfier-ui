@@ -38,9 +38,8 @@ module Agent
 
     def agent_reason
       if @engine == 'mlx_audio' && @workflow.graph['command'] == 'yue2' &&
-         !@backend.agent_at_least?(EngineRecipe.yue2_agent_version(@workflow.graph))
-        return "#{@backend.name}'s agent is too old for YuE2; update it to " \
-               "#{EngineRecipe.yue2_agent_version(@workflow.graph)} or later"
+         !@backend.agent_at_least?(EngineRecipe::YUE2_AGENT)
+        return "#{@backend.name}'s agent is too old for YuE2; update it to #{EngineRecipe::YUE2_AGENT} or later"
       end
       return unless EngineRecipe.wan_repo?(@workflow.graph) && !@backend.agent_at_least?(EngineRecipe::WAN_REPO_AGENT)
 

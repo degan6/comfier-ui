@@ -22,8 +22,8 @@ module EngineRecipe # rubocop:disable Metrics/ModuleLength
   MINIMAX_MODEL = 'mlx-community/MiniMax-Music3-bf16'.freeze
   MINIMAX_CONTROLS = { 'semantic_guidance' => 0..10, 'acoustic_guidance' => 0..10, 'top_k' => 1..16_384 }.freeze
   MINIMAX_OPTIONS = (%w[command model caption lyrics duration steps seed min_memory_gb] + MINIMAX_CONTROLS.keys).freeze
-  YUE2_AGENT = '0.4.18'.freeze
-  YUE2_SAMPLING_AGENT = '0.4.19'.freeze
+  # The first agent that runs YuE2.
+  YUE2_AGENT = '0.4.19'.freeze
   YUE2_MODEL = 'vanch007/mlx-Yue2-3B'.freeze
   YUE2_SAMPLING_DEFAULTS = {
     'abc_temperature' => 0.7, 'abc_top_p' => 0.9, 'abc_top_k' => 30,
@@ -112,10 +112,6 @@ module EngineRecipe # rubocop:disable Metrics/ModuleLength
     found
   end
 
-  def yue2_agent_version(recipe)
-    recipe.keys.intersect?(YUE2_SAMPLING_DEFAULTS.keys) ? YUE2_SAMPLING_AGENT : YUE2_AGENT
-  end
-
   def yue2_sampling_problems(recipe)
     found = YUE2_SAMPLING_DEFAULTS.keys.intersection(recipe.keys).filter_map do |key|
       field = key.split('_', 2).last
@@ -137,6 +133,8 @@ module EngineRecipe # rubocop:disable Metrics/ModuleLength
     YUE2_INTEGER_SAMPLING.exclude?(key) || value.is_a?(Integer)
   end
 
+  # Mirrors sampling_settings in the agent's yue2 worker: audio is 25 semantic tokens a second, and an
+  # omitted semantic minimum is 200 tokens or the maximum, whichever is smaller.
   def yue2_sampling_limit_problems(recipe)
     values = YUE2_SAMPLING_DEFAULTS.merge(recipe.slice(*YUE2_SAMPLING_DEFAULTS.keys))
     duration = recipe['duration']
