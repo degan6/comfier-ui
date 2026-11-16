@@ -1,13 +1,16 @@
 import { Controller } from "@hotwired/stimulus"
 import WaveSurfer from "wavesurfer.js"
 
+// Draws a result's saved waveform over its audio element and stands in for the browser's own controls, which
+// come back whenever the waveform can't be had. The player is data-turbo-permanent: a page refresh leaves it
+// alone, so a song that's playing carries on.
 export default class extends Controller {
   static targets = ["audio", "interface", "waveform", "seek", "tick", "play", "icon", "playLabel",
     "current", "duration", "speed", "mute", "notice"]
   static values = { waveformUrl: String }
 
   connect() {
-    this.media = this.audioTarget
+    this.reset()
     this.abortController = new AbortController()
     // Load the saved envelope near the viewport; audio itself remains a streaming media element.
     this.visibilityObserver = new IntersectionObserver((entries) => {
@@ -73,27 +76,24 @@ export default class extends Controller {
     this.noticeTarget.hidden = false
   }
 
-  disconnect() {
-    this.teardown()
-  }
-
-  refresh() {
-    this.teardown()
-    this.connect()
-  }
-
-  teardown() {
-    this.visibilityObserver?.disconnect()
-    this.themeObserver?.disconnect()
-    this.abortController?.abort()
-    clearTimeout(this.pollTimer)
-    this.media.pause()
-    this.wave?.destroy()
-    this.wave = null
+  // Back to how the server rendered it, which a page restored from Turbo's cache isn't.
+  reset() {
+    this.waveformTarget.replaceChildren()
     this.interfaceTarget.hidden = true
     this.audioTarget.hidden = false
     this.noticeTarget.textContent = "Loading waveform…"
     this.noticeTarget.hidden = false
+  }
+
+  // The page is going away; a removed audio element would otherwise keep playing.
+  disconnect() {
+    this.visibilityObserver.disconnect()
+    this.themeObserver.disconnect()
+    this.abortController.abort()
+    clearTimeout(this.pollTimer)
+    this.audioTarget.pause()
+    this.wave?.destroy()
+    this.wave = null
   }
 
   colors() {
