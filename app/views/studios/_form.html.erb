@@ -69,6 +69,10 @@
     </div>
   <% end %>
 
+  <% if kind.key == 'audio' && workflow.uses?(:prompt) %>
+    <%= render 'music_styles', f: f %>
+  <% end %>
+
   <% if workflow.uses?(:prompt) %>
     <% scriptable = kind.key == 'video' && LiteLlm::Client.configured? %>
     <div class="<%= studio_field_class(:prompt, needs_input) %>" <%= tag.attributes(data: { controller: 'video-script', video_script_url_value: video_scripts_path }) if scriptable %>>

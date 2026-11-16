@@ -4,7 +4,7 @@ import { Controller } from "@hotwired/stimulus"
 // settings along (carry[...]); the page comes back with them applied, and this swaps in just the form,
 // keeping a picked reference image, which can't travel in a URL. Without JavaScript the chip is still a
 // plain link that keeps the Tweak source.
-const CARRIED = ["prompt", "negative_prompt", "aspect_ratio", "duration", "quality", "cfg_level", "denoise",
+const CARRIED = ["prompt", "music_style", "negative_prompt", "aspect_ratio", "duration", "quality", "cfg_level", "denoise",
   "lyrics", "batch_size", "seed", "pinned_backend_id"]
 
 export default class extends Controller {
@@ -49,6 +49,8 @@ export default class extends Controller {
     }
     // Always present, so the page knows this is a switch and points out what's still needed.
     url.searchParams.set("carry[prompt]", data.get("generation[prompt]") ?? "")
+    const musicStyle = data.get("generation[music_style]")
+    if (musicStyle !== null) url.searchParams.set("carry[music_style]", musicStyle)
     const reference = data.get("generation[reference_source]")
     if (reference) url.searchParams.set("reference", reference)
     return url.toString()

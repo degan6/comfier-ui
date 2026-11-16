@@ -139,6 +139,22 @@ from the form).
   server should finish first. **Prefer my servers** uses your own when they can run the job, **Only my servers**
   never sends your work to anyone else's, and **Any server** ignores ownership entirely.
 
+### Music style presets
+
+Open **Settings → Music style presets** to create, edit, or delete your personal presets.
+Give each preset a name and describe its genre, mood, instruments, vocals, tempo, or production feel.
+Presets are private to your account.
+
+On **Audio**, choose a **Music style preset** to fill **Music style for this song**. You can edit that
+text for one song without changing the saved preset. Keep the song description and lyrics in their own
+fields. The style and song description are sent together to the music generator. Leave the style blank
+to generate without a preset. Existing songs and **Tweak** / **Run again** retain their own copy of the style,
+even after the preset is edited or deleted.
+
+When Chat is available, **Create with chat** starts a conversation to help describe the sound you want.
+Refine the description, then choose **Save as music preset** on the reply. Review the text, give it a name,
+and choose **Save preset**. You can also save a reply from an existing conversation this way.
+
 ### Notifications
 
 Comfier can tell you when something you made is ready, fails, or is cancelled, so you don't have to keep the page

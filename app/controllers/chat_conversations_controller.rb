@@ -23,6 +23,7 @@ class ChatConversationsController < ApplicationController
     return redirect_to chats_path, alert: 'Chat is not available.' unless chat_available?
 
     conversation = current_user.chat_conversations.create!(model: params[:model].presence || default_chat_model)
+    start_music_style_conversation(conversation) if params[:purpose] == 'music_style'
     redirect_to chat_path(conversation), status: :see_other
   end
 
@@ -61,6 +62,15 @@ class ChatConversationsController < ApplicationController
   end
 
   private
+
+  def start_music_style_conversation(conversation)
+    prompt = 'Help me create a reusable music style preset. Ask me about the sound I want, ' \
+             'then help refine a style description I can save.'
+    conversation.chat_messages.create!(role: :user, content: prompt)
+    conversation.set_title_from!('Create a music style preset')
+    reply = conversation.chat_messages.create!(role: :assistant, status: :pending, content: '')
+    ChatReplyJob.perform_later(reply.id)
+  end
 
   def conversation_params
     params.expect(chat_conversation: [:model])

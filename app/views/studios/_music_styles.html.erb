@@ -1,0 +1,14 @@
+<div class="mb-3" data-controller="music-style">
+  <label for="music_style_preset" class="form-label">Music style preset</label>
+  <select id="music_style_preset" class="form-select mb-2" data-action="music-style#apply" data-music-style-target="preset">
+    <option value="">Choose a saved preset…</option>
+    <% current_user.music_style_presets.ordered.each do |preset| %>
+      <%= tag.option preset.name, value: preset.description %>
+    <% end %>
+  </select>
+  <%= f.label :music_style, 'Music style for this song', class: 'form-label' %>
+  <%= f.text_area :music_style, rows: 3, maxlength: 5000, class: 'form-control', data: { music_style_target: 'description' } %>
+  <div class="form-text">Optional. Applied alongside your song description. Edits here affect only this song.
+    <%= link_to 'Manage presets', music_style_presets_path %>
+  </div>
+</div>

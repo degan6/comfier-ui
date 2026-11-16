@@ -19,6 +19,8 @@
                     class: 'btn btn-outline-secondary btn-sm' %>
     <% else %>
       <div class="chat-message-text"><%= simple_format(h(message.display_content), {}, sanitize: false) %></div>
+      <%= link_to 'Save as music preset', new_music_style_preset_path(message_id: message.id),
+                  class: 'btn btn-outline-secondary btn-sm mt-2' %>
     <% end %>
   </div>
   <% if message.succeeded? && message.content.present? %>
