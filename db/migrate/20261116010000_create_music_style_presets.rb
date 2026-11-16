@@ -7,6 +7,5 @@ class CreateMusicStylePresets < ActiveRecord::Migration[8.1]
       t.timestamps
     end
     add_index :music_style_presets, %i[user_id name], unique: true
-    add_column :generations, :music_style, :text
   end
 end

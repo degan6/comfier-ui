@@ -31,9 +31,9 @@ them, and that anything you share is visible to other members. Choose **I Unders
 
 The **Image**, **Video**, **Audio** and **3D Model** pages all work the same way:
 
-1. If there's more than one **Style**, pick one. Each style is a different ComfyUI workflow; its description says
-   what it's good at.
-2. Fill in **Describe what you want**.
+1. Choose a **Workflow / model** in the top box. Its description says what it's good at.
+2. Fill in **Describe what you want**, or **Music style** on Audio. Audio can fill this from a saved style;
+   enter lyrics in the separate **Lyrics** field when the workflow asks for them.
 3. Pick a **Shape** (square, landscape, portrait, wide or tall) where the style supports it.
 4. Optionally open **More options**:
    - **Avoid**: things you don't want in the result, like "blurry, text".
@@ -145,11 +145,13 @@ Open **Settings → Music style presets** to create, edit, or delete your person
 Give each preset a name and describe its genre, mood, instruments, vocals, tempo, or production feel.
 Presets are private to your account.
 
-On **Audio**, choose a **Music style preset** to fill **Music style for this song**. You can edit that
-text for one song without changing the saved preset. Keep the song description and lyrics in their own
-fields. The style and song description are sent together to the music generator. Leave the style blank
-to generate without a preset. Existing songs and **Tweak** / **Run again** retain their own copy of the style,
-even after the preset is edited or deleted.
+On **Audio**, the **Workflow / model** box selects the generator. In the separate generation box,
+write the **Music style**, or choose a **Saved music style** to fill it. This is the style description sent
+to the generator; there is no additional song-description field. Enter **Lyrics** separately when the
+workflow uses them. You can edit the style for one song without changing the saved preset. If you have
+no saved styles, **Create a music style** takes you to Settings; you can still type a style directly.
+Existing songs and **Tweak** / **Run again** retain their own copy of the style, even after a preset is
+edited or deleted.
 
 When Chat is available, **Create with chat** starts a conversation to help describe the sound you want.
 Refine the description, then choose **Save as music preset** on the reply. Review the text, give it a name,

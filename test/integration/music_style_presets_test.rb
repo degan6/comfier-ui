@@ -83,25 +83,25 @@ class MusicStylePresetsTest < ActionDispatch::IntegrationTest
     assert_select '#music_style_preset option', text: 'Private jazz', count: 0
   end
 
-  test 'audio generations snapshot the style separately from song instructions and lyrics' do
+  test 'audio generations use the style as the prompt and keep lyrics separate' do
     workflow = Workflow.create!(name: 'Music', kind: :audio, graph: {
                                   '1' => { 'class_type' => 'Music',
                                            'inputs' => { 'text' => '{{prompt}}', 'lyrics' => '{{lyrics}}' } }
                                 })
     post generations_path, params: { generation: {
-      workflow_id: workflow.id, prompt: 'A song about spring', music_style: 'Guitar and flute', lyrics: 'Hello spring'
+      workflow_id: workflow.id, prompt: 'Guitar and flute', lyrics: 'Hello spring'
     } }
 
     assert_response :redirect
     song = @alice.generations.order(:created_at).last
 
-    assert_equal 'A song about spring', song.prompt
-    assert_equal "Guitar and flute\n\nA song about spring", song.placeholder_values.fetch('prompt')
+    assert_equal 'Guitar and flute', song.prompt
+    assert_equal 'Guitar and flute', song.placeholder_values.fetch('prompt')
     assert_equal 'Hello spring', song.lyrics
     @preset.destroy!
 
-    assert_equal 'Guitar and flute', song.reload.music_style
-    assert_equal 'Guitar and flute', song.reusable_attributes.fetch(:music_style)
+    assert_equal 'Guitar and flute', song.reload.prompt
+    assert_equal 'Guitar and flute', song.reusable_attributes.fetch(:prompt)
 
     get generation_path(song)
 
@@ -113,11 +113,41 @@ class MusicStylePresetsTest < ActionDispatch::IntegrationTest
     workflow = Workflow.create!(name: 'Music', kind: :audio, graph: {
                                   '1' => { 'class_type' => 'Music', 'inputs' => { 'text' => '{{prompt}}' } }
                                 })
-    song = @alice.generations.create!(workflow: workflow, prompt: 'Spring', music_style: 'Folk')
-    get audio_studio_path, params: { from: song.id, carry: { prompt: 'Spring', music_style: '' } }
+    song = @alice.generations.create!(workflow: workflow, prompt: 'Folk')
+    get audio_studio_path, params: { from: song.id, carry: { prompt: '' } }
 
     assert_response :success
-    assert_select 'textarea[name="generation[music_style]"]', text: ''
+    assert_select 'textarea[name="generation[prompt]"]', text: ''
+  end
+
+  test 'audio without saved styles offers creation and just style and lyrics inputs' do
+    @preset.destroy!
+    Workflow.create!(name: 'Music', kind: :audio, graph: {
+                       '1' => { 'class_type' => 'Music',
+                                'inputs' => { 'text' => '{{prompt}}', 'lyrics' => '{{lyrics}}' } }
+                     })
+    get audio_studio_path
+
+    assert_response :success
+    assert_select '#music_style_preset', count: 0
+    assert_select 'a[href=?]', music_style_presets_path, text: 'Create a music style'
+    assert_select '.form-text', text: /Optional|alongside/, count: 0
+    assert_select 'textarea', count: 2
+    assert_select 'label[for="generation_prompt"]', text: 'Music style'
+    assert_select 'label', text: 'Describe what you want', count: 0
+    assert_select '.card .h-section-label', text: 'Workflow / model'
+  end
+
+  test 'missing lyrics keeps the editable style when rendering audio errors' do
+    workflow = Workflow.create!(name: 'Music', kind: :audio, graph: {
+                                  '1' => { 'class_type' => 'Music',
+                                           'inputs' => { 'text' => '{{prompt}}', 'lyrics' => '{{lyrics}}' } }
+                                })
+    post generations_path, params: { generation: { workflow_id: workflow.id, prompt: 'Bright folk', lyrics: '' } }
+
+    assert_response :unprocessable_content
+    assert_select 'textarea[name="generation[prompt]"]', text: 'Bright folk'
+    assert_select 'textarea', count: 2
   end
 
   test 'requires sign in' do

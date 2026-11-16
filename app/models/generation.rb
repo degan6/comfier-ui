@@ -42,7 +42,6 @@ class Generation < ApplicationRecord # rubocop:disable Metrics/ClassLength
   validates :workflow, presence: true, on: :create
   validates :prompt, presence: true, if: -> { workflow&.uses?(:prompt) }
   validates :lyrics, presence: true, if: -> { workflow&.uses?(:lyrics) }
-  validates :music_style, length: { maximum: 5_000 }
   validates :prompt, :negative_prompt, :lyrics, length: { maximum: 10_000 }
   validate :input_image_present, on: :create
   validate :workflow_is_usable, on: :create
@@ -96,21 +95,15 @@ class Generation < ApplicationRecord # rubocop:disable Metrics/ClassLength
 
   def placeholder_values(image: nil)
     {
-      'prompt' => generation_prompt, 'negative_prompt' => negative_prompt.to_s, 'seed' => seed,
+      'prompt' => prompt.to_s, 'negative_prompt' => negative_prompt.to_s, 'seed' => seed,
       'width' => width, 'height' => height, 'duration' => duration, 'frames' => frames, 'fps' => fps, 'image' => image,
       'steps' => steps, 'cfg' => cfg, 'denoise' => denoise, 'lyrics' => lyrics.to_s, 'batch_size' => batch_size
     }.compact
   end
 
-  def generation_prompt
-    return prompt.to_s unless audio? && music_style.present?
-
-    [music_style, prompt.presence].compact.join("\n\n")
-  end
-
   def reusable_attributes
-    { workflow_id:, prompt:, music_style:, negative_prompt:, aspect_ratio:, duration:, quality:, cfg_level:, denoise:,
-      lyrics:, batch_size: }.compact
+    { workflow_id:, prompt:, negative_prompt:, aspect_ratio:, duration:, quality:, cfg_level:, denoise:, lyrics:,
+      batch_size: }.compact
   end
 
   def title = prompt.presence&.truncate(80) || input_image&.filename&.to_s || "#{kind_info.label} ##{id}"

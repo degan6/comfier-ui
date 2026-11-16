@@ -1,14 +1,27 @@
-<div class="mb-3" data-controller="music-style">
-  <label for="music_style_preset" class="form-label">Music style preset</label>
-  <select id="music_style_preset" class="form-select mb-2" data-action="music-style#apply" data-music-style-target="preset">
-    <option value="">Choose a saved preset…</option>
-    <% current_user.music_style_presets.ordered.each do |preset| %>
-      <%= tag.option preset.name, value: preset.description %>
-    <% end %>
-  </select>
-  <%= f.label :music_style, 'Music style for this song', class: 'form-label' %>
-  <%= f.text_area :music_style, rows: 3, maxlength: 5000, class: 'form-control', data: { music_style_target: 'description' } %>
-  <div class="form-text">Optional. Applied alongside your song description. Edits here affect only this song.
-    <%= link_to 'Manage presets', music_style_presets_path %>
-  </div>
+<div class="<%= studio_field_class(:prompt, needs_input) %>" data-controller="music-style">
+  <% presets = current_user.music_style_presets.ordered.to_a %>
+  <% if presets.any? %>
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <label for="music_style_preset" class="form-label mb-0">Saved music style</label>
+      <%= link_to 'Manage styles', music_style_presets_path, class: 'text-12' %>
+    </div>
+    <select id="music_style_preset" class="form-select mb-3" data-action="music-style#apply" data-music-style-target="preset">
+      <option value="">Choose a saved style…</option>
+      <% presets.each do |preset| %>
+        <%= tag.option preset.name, value: preset.description %>
+      <% end %>
+    </select>
+  <% else %>
+    <div class="mb-3">
+      <p class="text-13 text-secondary mb-2">Save a music style to reuse it across songs.</p>
+      <%= link_to 'Create a music style', music_style_presets_path, class: 'btn btn-outline-secondary btn-sm' %>
+    </div>
+  <% end %>
+  <%= f.label :prompt, 'Music style', class: 'form-label' %>
+  <%= f.text_area :prompt, rows: 5, maxlength: 10000, class: 'form-control', required: true, autofocus: true,
+                          placeholder: 'Warm acoustic folk, fingerpicked guitar, intimate vocals, light percussion…',
+                          data: { music_style_target: 'description' } %>
+  <% if presets.any? %>
+    <div class="form-text">Edit the style for this song. Your saved style stays unchanged.</div>
+  <% end %>
 </div>

@@ -336,7 +336,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_010000) do
     t.bigint "album_art_generation_id"
     t.integer "public_view_count", default: 0, null: false
     t.datetime "public_last_viewed_at"
-    t.text "music_style"
     t.index ["album_art_generation_id"], name: "index_generations_on_album_art_generation_id"
     t.index ["backend_id", "agent_state"], name: "index_generations_on_backend_id_and_agent_state"
     t.index ["backend_id"], name: "index_generations_on_backend_id"

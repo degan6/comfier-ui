@@ -4,7 +4,7 @@ class StudiosController < ApplicationController
   include GenerationReferenceReuse
 
   # Settings that carry over when the user picks another style (sent as carry[...] by the style switch).
-  CARRIED = %i[prompt music_style negative_prompt aspect_ratio duration quality cfg_level denoise lyrics batch_size seed
+  CARRIED = %i[prompt negative_prompt aspect_ratio duration quality cfg_level denoise lyrics batch_size seed
                pinned_backend_id].freeze
 
   def show
@@ -32,12 +32,12 @@ class StudiosController < ApplicationController
 
   def switched_style? = params.key?(:carry)
 
-  # Blank fields keep defaults, except music style: clearing it must also clear a reused song's style.
+  # Keep explicit prompt edits, including clearing the style on a reused audio generation.
   def carried
     return {} unless switched_style?
 
     carried = params.expect(carry: CARRIED).to_h.symbolize_keys
-    values = carried.compact_blank.merge(carried.slice(:music_style))
+    values = carried.compact_blank.merge(carried.slice(:prompt))
     values[:denoise] = values[:denoise].to_f / 100.0 if values[:denoise]
     values
   end
