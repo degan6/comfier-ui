@@ -117,12 +117,11 @@ class MusicStylePresetsTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select '#music_style_preset', count: 0
-    assert_select 'a[href=?]', music_style_presets_path, text: 'Create a music style'
-    assert_select '.form-text', text: /Optional|alongside/, count: 0
+    assert_select 'a[href=?]', new_music_style_preset_path, text: 'Create a music style'
     assert_select 'textarea', count: 2
     assert_select 'label[for="generation_prompt"]', text: 'Music style'
     assert_select 'label', text: 'Describe what you want', count: 0
-    assert_select '.card .h-section-label', text: 'Workflow / model'
+    assert_select '.card .h-section-label', text: 'Style'
   end
 
   test 'missing lyrics keeps the editable style when rendering audio errors' do

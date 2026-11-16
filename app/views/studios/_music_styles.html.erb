@@ -1,5 +1,5 @@
 <div class="<%= studio_field_class(:prompt, needs_input) %>" data-controller="music-style">
-  <% presets = current_user.music_style_presets.ordered.to_a %>
+  <% presets = music_style_presets %>
   <% if presets.any? %>
     <div class="d-flex align-items-center justify-content-between mb-2">
       <label for="music_style_preset" class="form-label mb-0">Saved music style</label>
@@ -14,7 +14,7 @@
   <% else %>
     <div class="mb-3">
       <p class="text-13 text-secondary mb-2">Save a music style to reuse it across songs.</p>
-      <%= link_to 'Create a music style', music_style_presets_path, class: 'btn btn-outline-secondary btn-sm' %>
+      <%= link_to 'Create a music style', new_music_style_preset_path, class: 'btn btn-outline-secondary btn-sm' %>
     </div>
   <% end %>
   <%= f.label :prompt, 'Music style', class: 'form-label' %>

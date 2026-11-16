@@ -10,7 +10,7 @@
 <% @presets.each do |preset| %>
   <div class="card card-body mb-3">
     <h2 class="h5"><%= preset.name %></h2>
-    <div class="mb-3"><%= simple_format(h(preset.description), {}, sanitize: false) %></div>
+    <div class="mb-3"><%= simple_format(preset.description) %></div>
     <div class="d-flex gap-2">
       <%= link_to 'Edit', edit_music_style_preset_path(preset), class: 'btn btn-outline-secondary btn-sm' %>
       <%= button_to 'Delete', music_style_preset_path(preset), method: :delete, class: 'btn btn-outline-danger btn-sm',

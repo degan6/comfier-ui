@@ -44,12 +44,10 @@ class MusicStylePresetsSystemTest < ApplicationSystemTestCase
     visit audio_studio_path
 
     assert_no_selector '#music_style_preset'
-    assert_no_text 'Optional. Applied alongside'
     fill_in 'Music style', with: 'Bright synth pop'
     fill_in 'Lyrics', with: 'Morning light'
     click_on 'Create a music style'
 
-    assert_current_path music_style_presets_path
-    assert_text 'No music style presets yet.'
+    assert_current_path new_music_style_preset_path
   end
 end

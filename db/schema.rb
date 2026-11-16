@@ -427,7 +427,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_010000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["user_id", "name"], name: "index_music_style_presets_on_user_id_and_name", unique: true
-    t.index ["user_id"], name: "index_music_style_presets_on_user_id"
   end
 
   create_table "perf_samples", force: :cascade do |t|

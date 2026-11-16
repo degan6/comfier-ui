@@ -31,8 +31,8 @@ them, and that anything you share is visible to other members. Choose **I Unders
 
 The **Image**, **Video**, **Audio** and **3D Model** pages all work the same way:
 
-1. Choose a **Workflow / model** in the top box. Its description says what it's good at.
-2. Fill in **Describe what you want**, or **Music style** on Audio. Audio can fill this from a saved style;
+1. Pick a **Style** in the top box. Each style is a different workflow; its description says what it's good at.
+2. Fill in **Describe what you want**, or **Music style** on Audio. Audio can fill this from a saved music style;
    enter lyrics in the separate **Lyrics** field when the workflow asks for them.
 3. Pick a **Shape** (square, landscape, portrait, wide or tall) where the style supports it.
 4. Optionally open **More options**:
@@ -145,9 +145,8 @@ Open **Settings → Music style presets** to create, edit, or delete your person
 Give each preset a name and describe its genre, mood, instruments, vocals, tempo, or production feel.
 Presets are private to your account.
 
-On **Audio**, the **Workflow / model** box selects the generator. In the separate generation box,
-write the **Music style**, or choose a **Saved music style** to fill it. This is the style description sent
-to the generator; there is no additional song-description field. Enter **Lyrics** separately when the
+On **Audio**, the **Style** box selects the generator. In the box below it, write the **Music style**, or
+choose a **Saved music style** to fill it. This is the description sent to the generator. Enter **Lyrics** separately when the
 workflow uses them. You can edit the style for one song without changing the saved preset. If you have
 no saved styles, **Create a music style** takes you to Settings; you can still type a style directly.
 Existing songs and **Tweak** / **Run again** retain their own copy of the style, even after a preset is

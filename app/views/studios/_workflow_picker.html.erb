@@ -1,5 +1,5 @@
 <div class="card card-body mb-3">
-  <div class="h-section-label">Workflow / model</div>
+  <div class="h-section-label">Style</div>
   <% if workflows.many? %>
     <div class="d-flex flex-wrap gap-2">
       <% source_id = (local_assigns[:source_generation] || @source_generation)&.id %>
@@ -17,7 +17,7 @@
   <% end %>
   <% if needs_input.any? %>
     <div class="text-12 text-warning mt-2" role="status" data-style-switch-target="note">
-      Your settings carried over. Fill in the highlighted <%= 'field'.pluralize(needs_input.size) %> this workflow also needs.
+      Your settings carried over. Fill in the highlighted <%= 'field'.pluralize(needs_input.size) %> this style also needs.
     </div>
   <% end %>
 </div>

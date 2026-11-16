@@ -32,7 +32,8 @@ class StudiosController < ApplicationController
 
   def switched_style? = params.key?(:carry)
 
-  # Keep explicit prompt edits, including clearing the style on a reused audio generation.
+  # What the form held under the previous style. Blank fields fall back to the defaults;
+  # a cleared prompt stays cleared.
   def carried
     return {} unless switched_style?
 
