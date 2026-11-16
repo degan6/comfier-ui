@@ -11,7 +11,8 @@ All notable changes to this project are documented here. The format follows
 ### Added
 - **Audio**: YuE2 on the Mac agent, with vocal/instrumental presets, optional ABC score conditioning,
   pinned MLX weights, and 48 kHz stereo WAV output. A separate Python 3.12 environment keeps YuE2
-  compatible with the existing MiniMax runtime; see the agent README for setup.
+  compatible with the existing MiniMax runtime; see the agent README for setup. Workflow JSON also exposes
+  independent score/audio sampling and repetition controls with validated token budgets and documented defaults.
 - **Audio**: native MiniMax Music 3 on Apple Silicon through the `mlx_audio` agent engine, with
   fixed 60-second vocal/instrumental presets, pinned BF16 weights, cancellable jobs, lossless WAV
   output and optional MP3 export. Semantic/acoustic guidance and top-k are set directly in recipe JSON; unrelated

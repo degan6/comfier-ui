@@ -15,8 +15,19 @@ from comfier_agent.workers.minimax_music import emit
 
 MODEL = "vanch007/mlx-Yue2-3B"
 REVISION = "5f7620e546fb3c6130a09a7e18172e3bb7aaeddb"
+SAMPLING_DEFAULTS = {
+    "abc": {"temperature": .7, "top_p": .9, "top_k": 30, "repetition_penalty": 1.005,
+            "penalty_window": 100, "min_tokens": 32, "max_tokens": 4096},
+    "semantic": {"temperature": 1., "top_p": .95, "top_k": 100, "repetition_penalty": 1.2,
+                 "penalty_window": 50, "min_tokens": 200, "max_tokens": 9000},
+}
+SAMPLING_OPTIONS = {f"{stage}_{key}" for stage, defaults in SAMPLING_DEFAULTS.items() for key in defaults}
+SAMPLING_RANGES = {"temperature": (0, 5), "top_p": (0, 1), "top_k": (1, math.inf),
+                   "repetition_penalty": (0, math.inf), "penalty_window": (1, 100),
+                   "min_tokens": (0, 24575), "max_tokens": (1, 24575)}
+SAMPLING_INTEGERS = {"top_k", "penalty_window", "min_tokens", "max_tokens"}
 OPTIONS = {"command", "model", "style", "lyrics", "duration", "steps", "seed", "min_memory_gb",
-           "precision", "cot", "abc", "cfg_scale"}
+           "precision", "cot", "abc", "cfg_scale", *SAMPLING_OPTIONS}
 # The BF16 AR is needed for acoustic conditioning even when planning uses 8-bit weights.
 FILES = {"conversion.json", "config.json", "qwen.tiktoken", "ar-8bit.safetensors", "ar-bf16.safetensors",
          "nar-bf16.safetensors", "LICENSE", "THIRD_PARTY_NOTICES.md", "licenses/SnakeBeta-NVIDIA-MIT.txt",
@@ -53,6 +64,42 @@ def validate(recipe: dict) -> None:
         if (isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)
                 or not 0 <= value <= 20):
             raise ValueError("cfg_scale must be a number between 0 and 20")
+
+    sampling_settings(recipe)
+
+
+def sampling_settings(recipe: dict) -> dict:
+    """Resolve literal workflow controls without importing the optional MLX runtime."""
+    limit = max(1, int(recipe["duration"] * 25))
+    stages = {}
+    for stage, defaults in SAMPLING_DEFAULTS.items():
+        values = {key: recipe.get(f"{stage}_{key}", value) for key, value in defaults.items()}
+        if stage == "semantic":
+            values["max_tokens"] = recipe.get("semantic_max_tokens", limit)
+            if "semantic_max_tokens" in recipe:
+                validate_sampling_value("semantic_max_tokens", values["max_tokens"])
+                if values["max_tokens"] > limit:
+                    raise ValueError("semantic_max_tokens cannot exceed duration * 25")
+            if "semantic_min_tokens" not in recipe:
+                values["min_tokens"] = min(200, values["max_tokens"])
+        for key, value in values.items():
+            validate_sampling_value(f"{stage}_{key}", value)
+        if values["min_tokens"] > values["max_tokens"]:
+            raise ValueError(f"{stage}_min_tokens cannot exceed {stage}_max_tokens")
+        stages[stage] = values
+    return stages
+
+
+def validate_sampling_value(name: str, value) -> None:
+    key = name.split("_", 1)[1]
+    low, high = SAMPLING_RANGES[key]
+    if (isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)
+            or not low <= value <= high or (low == 0 and key in {"top_p", "repetition_penalty"} and value == 0)
+            or (key in SAMPLING_INTEGERS and not isinstance(value, int))):
+        kind = "an integer" if key in SAMPLING_INTEGERS else "a finite number"
+        bounds = (f"greater than {low} and at most {high}" if key in {"top_p", "repetition_penalty"}
+                  else f"in [{low}, {high}]")
+        raise ValueError(f"{name} must be {kind} {bounds}; use a literal JSON value")
 
 
 def complete_snapshot(path: Path) -> bool:
@@ -123,10 +170,9 @@ def generate(recipe: dict, output: Path) -> None:
     started = time.perf_counter()
     snapshot = model_path()
     output.parent.mkdir(parents=True, exist_ok=True)
-    # 25 semantic frames per second. Songs may end naturally before this upper bound.
-    max_tokens = max(1, int(recipe["duration"] * 25))
-    config = GenerationConfig(ode_steps=recipe["steps"],
-                              semantic=Sampling(max_tokens=max_tokens, min_tokens=min(200, max_tokens)))
+    sampling = sampling_settings(recipe)
+    config = GenerationConfig(ode_steps=recipe["steps"], abc=Sampling(**sampling["abc"]),
+                              semantic=Sampling(**sampling["semantic"]))
     with tempfile.TemporaryDirectory(prefix="yue2-", dir=output.parent) as directory:
         model = Path(directory)
         materialize(snapshot, model)
@@ -149,7 +195,9 @@ def generate(recipe: dict, output: Path) -> None:
                  load_seconds=loaded - started, generation_seconds=time.perf_counter() - loaded,
                  sample_rate=result.sample_rate, duration_seconds=len(audio) / result.sample_rate,
                  requested_seconds=recipe["duration"], steps=recipe["steps"], seed=recipe["seed"],
-                 precision=recipe.get("precision", "8bit"), cot=recipe.get("cot", "full"))
+                 precision=recipe.get("precision", "8bit"), cot=recipe.get("cot", "full"),
+                 cfg_scale=recipe.get("cfg_scale", 1.01 if recipe.get("cot", "full") == "off" else 1.),
+                 abc_sampling=sampling["abc"], semantic_sampling=sampling["semantic"])
 
 
 def main() -> None:

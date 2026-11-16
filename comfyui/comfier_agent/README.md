@@ -378,7 +378,60 @@ The recipe accepts these controls:
 - `cot`: `full` (default, melody and chords), `melody`, or `off` for direct generation.
   This setting does not select instrumental music.
 - `abc`: optional nonempty ABC notation, with `cot` set to `full` or `melody`.
-- `cfg_scale`: optional literal guidance from 0 to 20. Omit it to keep YuE2's mode-specific defaults.
+- `cfg_scale`: optional literal guidance from 0 to 20. Defaults to 1.0 with score planning and 1.01
+  in direct mode. Presets explicitly set 1.0; remove it to use the mode-specific default when changing `cot`.
+
+### YuE2 score and audio sampling in workflow JSON
+
+Agent **0.4.19 or later** accepts the following independent sampling controls. Prefix each field with
+`abc_` for score composition or `semantic_` for audio-token generation. These are literal JSON numbers
+in the admin workflow recipe, independent of generation Quality or the hidden generic guidance field.
+No new end-user generation controls are added. Omitted fields preserve the original pipeline defaults.
+
+| Field suffix | Score (`abc_`) default | Audio (`semantic_`) default | Allowed values |
+| --- | --- | --- | --- |
+| `temperature` | 0.7 | 1.0 | Finite number, 0–5; 0 uses greedy sampling |
+| `top_p` | 0.9 | 0.95 | Finite number, greater than 0 and at most 1 |
+| `top_k` | 30 | 100 | Integer, at least 1 |
+| `repetition_penalty` | 1.005 | 1.2 | Finite number, greater than 0; 1 disables the penalty |
+| `penalty_window` | 100 | 50 | Integer, 1–100 tokens |
+| `min_tokens` | 32 | `min(200, effective semantic_max_tokens)` | Integer, 0–24575, no greater than the stage's maximum |
+| `max_tokens` | 4096 | `max(1, floor(duration * 25))` | Integer, 1–24575; audio is additionally capped by duration |
+
+For example, these fields can be added to either vocal or instrumental recipes:
+
+```json
+{
+  "abc_temperature": 0.7,
+  "abc_top_p": 0.9,
+  "abc_top_k": 30,
+  "abc_repetition_penalty": 1.005,
+  "abc_penalty_window": 100,
+  "abc_min_tokens": 32,
+  "abc_max_tokens": 4096,
+  "semantic_temperature": 1.0,
+  "semantic_top_p": 0.95,
+  "semantic_top_k": 100,
+  "semantic_repetition_penalty": 1.2,
+  "semantic_penalty_window": 50,
+  "semantic_min_tokens": 200
+}
+```
+
+Presets include these defaults so admins can discover and edit them directly. `semantic_max_tokens`
+is omitted from presets so changing `duration` adjusts the upper bound automatically. An explicit
+`semantic_max_tokens` can shorten that budget, but cannot exceed `max(1, floor(duration * 25))`.
+If an explicit minimum exceeds its stage's maximum, validation rejects the recipe. In particular,
+when shortening a preset below eight seconds, lower or remove its explicit `semantic_min_tokens: 200`.
+Minimum tokens prevent an early end token; they do not guarantee musical completeness or an exact
+recording length. The ABC token budget counts notation tokens, not seconds.
+
+Score sampling applies only when `cot` is `full` or `melody` and no `abc` score is supplied. With
+`cot: "off"` or a supplied score, the composition stage is skipped; audio sampling still applies.
+Both stages must leave room for their prompt and score prefixes within the model's 24576-token
+context. The runtime checks the exact tokenized prefix; a large ABC budget can hit that limit even
+when the recipe's individual numeric ranges are valid. Completed jobs log both effective sampling
+configurations, including duration-derived limits, for reproducibility.
 
 Jobs use the same GPU lock, load/run timeouts, cancellation and uploads as the other Mac engines.
 The master recording is a 24-bit WAV. Review the [model license and notices](https://huggingface.co/vanch007/mlx-Yue2-3B)

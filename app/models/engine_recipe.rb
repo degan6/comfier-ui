@@ -23,8 +23,23 @@ module EngineRecipe # rubocop:disable Metrics/ModuleLength
   MINIMAX_CONTROLS = { 'semantic_guidance' => 0..10, 'acoustic_guidance' => 0..10, 'top_k' => 1..16_384 }.freeze
   MINIMAX_OPTIONS = (%w[command model caption lyrics duration steps seed min_memory_gb] + MINIMAX_CONTROLS.keys).freeze
   YUE2_AGENT = '0.4.18'.freeze
+  YUE2_SAMPLING_AGENT = '0.4.19'.freeze
   YUE2_MODEL = 'vanch007/mlx-Yue2-3B'.freeze
-  YUE2_OPTIONS = %w[command model style lyrics duration steps seed min_memory_gb precision cot abc cfg_scale].freeze
+  YUE2_SAMPLING_DEFAULTS = {
+    'abc_temperature' => 0.7, 'abc_top_p' => 0.9, 'abc_top_k' => 30,
+    'abc_repetition_penalty' => 1.005, 'abc_penalty_window' => 100, 'abc_min_tokens' => 32, 'abc_max_tokens' => 4096,
+    'semantic_temperature' => 1.0, 'semantic_top_p' => 0.95, 'semantic_top_k' => 100,
+    'semantic_repetition_penalty' => 1.2, 'semantic_penalty_window' => 50,
+    'semantic_min_tokens' => 200, 'semantic_max_tokens' => 9000
+  }.freeze
+  YUE2_SAMPLING_RANGES = {
+    'temperature' => 0..5, 'top_p' => 0..1, 'top_k' => 1..Float::INFINITY,
+    'repetition_penalty' => 0..Float::INFINITY, 'penalty_window' => 1..100,
+    'min_tokens' => 0..24_575, 'max_tokens' => 1..24_575
+  }.freeze
+  YUE2_INTEGER_SAMPLING = %w[top_k penalty_window min_tokens max_tokens].freeze
+  YUE2_OPTIONS = (%w[command model style lyrics duration steps seed min_memory_gb precision cot abc cfg_scale] +
+                  YUE2_SAMPLING_DEFAULTS.keys).freeze
   KEY = /\A[a-z][a-z0-9_]*\z/
   # The Gemma 3 text encoder LTX-2.3 is known to work with in mlx-video.
   LTX_TEXT_ENCODER = 'mlx-community/gemma-3-12b-it-bf16'.freeze
@@ -82,7 +97,8 @@ module EngineRecipe # rubocop:disable Metrics/ModuleLength
       found << "needs \"#{key}\"" unless recipe[key].is_a?(String) && recipe[key].present?
     end
     found + audio_numeric_problems(recipe, 'duration' => 0.04..360, 'steps' => 1..64,
-                                           'seed' => 0..Generation::MAX_SEED) + yue2_control_problems(recipe)
+                                           'seed' => 0..Generation::MAX_SEED) + yue2_control_problems(recipe) +
+      yue2_sampling_problems(recipe)
   end
 
   def yue2_control_problems(recipe)
@@ -93,6 +109,45 @@ module EngineRecipe # rubocop:disable Metrics/ModuleLength
     if recipe.key?('cfg_scale') && !valid_yue2_guidance?(recipe['cfg_scale'])
       found << '"cfg_scale" must be a number between 0 and 20; use a literal JSON value'
     end
+    found
+  end
+
+  def yue2_agent_version(recipe)
+    recipe.keys.intersect?(YUE2_SAMPLING_DEFAULTS.keys) ? YUE2_SAMPLING_AGENT : YUE2_AGENT
+  end
+
+  def yue2_sampling_problems(recipe)
+    found = YUE2_SAMPLING_DEFAULTS.keys.intersection(recipe.keys).filter_map do |key|
+      field = key.split('_', 2).last
+      next if valid_yue2_sampling_value?(field, recipe[key])
+
+      kind = YUE2_INTEGER_SAMPLING.include?(field) ? 'integer' : 'finite number'
+      positive = %w[top_p repetition_penalty].include?(field) ? ', greater than zero' : ''
+      "\"#{key}\" must be a literal JSON #{kind} in #{YUE2_SAMPLING_RANGES.fetch(field)}#{positive}"
+    end
+    return found if found.any?
+
+    yue2_sampling_limit_problems(recipe)
+  end
+
+  def valid_yue2_sampling_value?(key, value)
+    return false unless value.is_a?(Numeric) && value.finite? && YUE2_SAMPLING_RANGES.fetch(key).cover?(value)
+    return false if %w[top_p repetition_penalty].include?(key) && value.zero?
+
+    YUE2_INTEGER_SAMPLING.exclude?(key) || value.is_a?(Integer)
+  end
+
+  def yue2_sampling_limit_problems(recipe)
+    values = YUE2_SAMPLING_DEFAULTS.merge(recipe.slice(*YUE2_SAMPLING_DEFAULTS.keys))
+    duration = recipe['duration']
+    limit = duration.is_a?(Numeric) && duration.finite? ? [(duration * 25).floor, 1].max : 9000
+    values['semantic_max_tokens'] = recipe.fetch('semantic_max_tokens', limit)
+    values['semantic_min_tokens'] = recipe.fetch('semantic_min_tokens', [200, values['semantic_max_tokens']].min)
+    found = %w[abc semantic].filter_map do |stage|
+      "#{stage}_min_tokens cannot exceed #{stage}_max_tokens" if values["#{stage}_min_tokens"] >
+                                                                 values["#{stage}_max_tokens"]
+    end
+    found << 'semantic_max_tokens cannot exceed duration * 25' if values['semantic_max_tokens'] > limit
     found
   end
 

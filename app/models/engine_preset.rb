@@ -50,7 +50,8 @@ class EnginePreset # rubocop:disable Metrics/ClassLength
   YUE2 = {
     'command' => 'yue2', 'model' => EngineRecipe::YUE2_MODEL, 'style' => '{{prompt}}',
     'duration' => 180, 'steps' => '{{steps}}', 'seed' => '{{seed}}', 'min_memory_gb' => 32,
-    'precision' => '8bit', 'cot' => 'full'
+    'precision' => '8bit', 'cot' => 'full', 'cfg_scale' => 1.0,
+    **EngineRecipe::YUE2_SAMPLING_DEFAULTS.except('semantic_max_tokens')
   }.freeze
 
   ALL = [

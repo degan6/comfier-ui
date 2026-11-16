@@ -129,7 +129,13 @@ def stub_pipeline(tmp_path, monkeypatch, audio, rate=48000):
 def test_generation_uses_real_pipeline_controls_and_preserves_48khz_stereo(tmp_path, monkeypatch, capsys):
     calls, writes = stub_pipeline(tmp_path, monkeypatch, np.zeros((480, 2)))
     yue2.generate({**RECIPE, "abc": "X:1\nK:C\nC4|", "cfg_scale": 1.2}, tmp_path / "song.wav")
-    assert calls[0]["generation_config"] == {"ode_steps": 32, "semantic": {"max_tokens": 4500, "min_tokens": 200}}
+    assert calls[0]["generation_config"] == {
+        "ode_steps": 32,
+        "abc": {"temperature": .7, "top_p": .9, "top_k": 30, "repetition_penalty": 1.005,
+                "penalty_window": 100, "min_tokens": 32, "max_tokens": 4096},
+        "semantic": {"temperature": 1., "top_p": .95, "top_k": 100, "repetition_penalty": 1.2,
+                     "penalty_window": 50, "min_tokens": 200, "max_tokens": 4500},
+    }
     assert calls[0]["local_files_only"] is True and calls[0]["precision"] == "8bit"
     assert calls[2] == {"style": RECIPE["style"], "lyrics": RECIPE["lyrics"], "seed": RECIPE["seed"],
                         "cot": "full", "abc": "X:1\nK:C\nC4|", "cfg_scale": 1.2}
@@ -188,3 +194,64 @@ async def test_yue2_job_uploads_audio_without_comfyui(agent, tmp_path, monkeypat
     assert len(completed["outputs"]) == 1
     assert completed["outputs"][0]["kind"] == "audio"
     await runtime.engines["mlx_audio"].close()
+
+
+@pytest.mark.parametrize("stage", ["abc", "semantic"])
+@pytest.mark.parametrize("control,value", [
+    ("temperature", -0.1), ("temperature", 5.1), ("temperature", True), ("temperature", float("nan")),
+    ("top_p", 0), ("top_p", 1.1), ("top_p", float("inf")), ("top_k", 0), ("top_k", 2.5),
+    ("repetition_penalty", 0), ("repetition_penalty", -1), ("penalty_window", 0), ("penalty_window", 101),
+    ("min_tokens", -1), ("max_tokens", 0), ("max_tokens", 24576),
+])
+def test_invalid_stage_sampling_is_rejected_before_launch(stage, control, value):
+    with pytest.raises(JobError, match=f"{stage}_{control}"):
+        MlxAudioEngine(AgentConfig()).validate({**RECIPE, f"{stage}_{control}": value})
+
+
+@pytest.mark.parametrize("key", sorted(yue2.SAMPLING_OPTIONS))
+@pytest.mark.parametrize("value", [None, True, "{{cfg}}", "1", [], {}])
+def test_sampling_requires_literal_numbers(key, value):
+    with pytest.raises(JobError):
+        MlxAudioEngine(AgentConfig()).validate({**RECIPE, key: value})
+
+
+@pytest.mark.parametrize("patch", [
+    {"abc_min_tokens": 33, "abc_max_tokens": 32},
+    {"semantic_min_tokens": 101, "semantic_max_tokens": 100},
+    {"semantic_max_tokens": 4501}, {"semantic_min_tokens": 4501},
+])
+def test_token_limits_are_ordered_and_do_not_exceed_duration(patch):
+    with pytest.raises(JobError, match="cannot exceed"):
+        MlxAudioEngine(AgentConfig()).validate({**RECIPE, **patch})
+
+
+def test_short_clips_keep_the_legacy_minimum_and_explicit_budgets_can_shorten_them():
+    recipe = {**RECIPE, "duration": .04}
+    yue2.validate(recipe)
+    assert yue2.sampling_settings(recipe)["semantic"]["min_tokens"] == 1
+    assert yue2.sampling_settings(recipe)["semantic"]["max_tokens"] == 1
+    recipe = {**RECIPE, "semantic_max_tokens": 100}
+    yue2.validate(recipe)
+    assert yue2.sampling_settings(recipe)["semantic"]["min_tokens"] == 100
+
+
+def test_both_stages_reach_the_native_generation_config_and_metrics(tmp_path, monkeypatch, capsys):
+    calls, _writes = stub_pipeline(tmp_path, monkeypatch, np.zeros((480, 2)))
+    abc = {"temperature": .6, "top_p": .8, "top_k": 50, "repetition_penalty": 1.1,
+           "penalty_window": 64, "min_tokens": 16, "max_tokens": 2048}
+    semantic = {"temperature": .8, "top_p": .85, "top_k": 75, "repetition_penalty": 1.4,
+                "penalty_window": 60, "min_tokens": 100, "max_tokens": 1000}
+    controls = {f"{stage}_{key}": value for stage, settings in (("abc", abc), ("semantic", semantic))
+                for key, value in settings.items()}
+    yue2.generate({**RECIPE, **controls}, tmp_path / "controlled.wav")
+    assert calls[0]["generation_config"] == {"ode_steps": 32, "abc": abc, "semantic": semantic}
+    metrics = json.loads(capsys.readouterr().out.splitlines()[-1])
+    assert metrics["abc_sampling"] == abc and metrics["semantic_sampling"] == semantic
+    assert metrics["cfg_scale"] == 1.0
+
+
+@pytest.mark.parametrize("cot,expected", [("off", 1.01), ("melody", 1.), ("full", 1.)])
+def test_omitted_guidance_keeps_mode_specific_defaults(tmp_path, monkeypatch, capsys, cot, expected):
+    stub_pipeline(tmp_path, monkeypatch, np.zeros((480, 2)))
+    yue2.generate({**RECIPE, "cot": cot}, tmp_path / "default.wav")
+    assert json.loads(capsys.readouterr().out.splitlines()[-1])["cfg_scale"] == expected
