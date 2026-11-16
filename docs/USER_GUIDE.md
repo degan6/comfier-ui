@@ -88,6 +88,11 @@ to take yours back.
 Image results also offer **Use as reference**, which opens the Image page with that output attached as your
 reference image.
 
+An audio result's page plays it through a waveform player. Click along the waveform to jump to that point, or focus
+it and use the arrow keys; the controls beneath it change the speed and mute the sound. The first time an older
+track is opened its waveform takes a moment to prepare, and the browser's own player is there meanwhile. A song
+that's playing carries on when the page updates itself, such as when its album art arrives.
+
 Finished audio results offer **Create album art**. It queues a square image made from the track's description and
 lyrics, and once it's done the cover shows in the track's player on its page, in Results, and on shared and public
 pages. The image is also a result of its own, linked from the track's page under **Album art**. Choose **New album

@@ -31,6 +31,16 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
     WebMock.disable_net_connect!(allow_localhost: true, allow: [remote, ENV.fetch('CAPYBARA_APP_HOST', nil)].compact)
   end
 
+  def assert_eventually(message = 'condition never became true', timeout: 10)
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+    until yield
+      flunk(message.respond_to?(:call) ? message.call : message) if
+        Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+      sleep 0.2
+    end
+    pass
+  end
+
   def sign_in_as(user)
     groups = user.admin? ? [User.admin_group] : []
     OmniAuth.config.mock_auth[:authentik] =

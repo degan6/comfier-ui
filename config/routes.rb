@@ -19,6 +19,7 @@ Rails.application.routes.draw do
 
   get 'p/:token', to: 'public_shares#show', as: :public_share
   get 'p/:token/outputs/:index', to: 'public_shares#output', as: :public_share_output
+  get 'p/:token/waveforms/:index', to: 'public_shares#waveform', as: :public_share_waveform
   get 'p/:token/cover', to: 'public_shares#cover', as: :public_share_cover
   get 'p/:token/poster', to: 'public_shares#poster', as: :public_share_poster
   get 'queue', to: 'queue#index', as: :queue
@@ -61,6 +62,7 @@ Rails.application.routes.draw do
       delete :public_link, action: :revoke_public_link
       # The result's files, at URLs that don't expire (see GenerationOutputsController).
       get 'outputs/:attachment_id(/*filename)', to: 'generation_outputs#show', as: :output, format: false
+      get 'waveforms/:attachment_id', to: 'generation_outputs#waveform', as: :waveform
       get :poster, to: 'generation_outputs#poster'
       get :cover, to: 'generation_outputs#cover'
       get :input_image, to: 'generation_outputs#input_image'
