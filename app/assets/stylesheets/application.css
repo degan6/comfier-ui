@@ -81,7 +81,6 @@ body { font-size: 14px; }
 }
 .audio-player [hidden] { display: none !important; }
 .audio-player-waveform { position: relative; }
-/* wavesurfer stacks its own layers (z-index 2 and up); keep them inside the waveform so the seek bar stays on top. */
 .audio-player-wave { isolation: isolate; }
 .audio-player-seek {
   position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: crosshair;
