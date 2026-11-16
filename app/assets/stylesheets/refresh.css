@@ -6,23 +6,6 @@
   --app-hover: rgba(255, 255, 255, 0.04);
 }
 
-/* Audio player */
-.audio-player {
-  width: 100%; min-width: 0; padding: 1rem;
-  border: 1px solid var(--app-border); border-radius: var(--bs-border-radius); background: var(--app-surface);
-}
-.audio-player [hidden] { display: none !important; }
-.audio-player-waveform { position: relative; }
-.audio-player-seek {
-  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: crosshair;
-}
-.audio-player-waveform:focus-within { outline: 2px solid var(--bs-primary); outline-offset: 3px; }
-.audio-player-ticks, .audio-player-controls {
-  display: flex; justify-content: space-between; gap: .5rem;
-}
-.audio-player-controls { flex-wrap: wrap; align-items: center; }
-.audio-player-speed { width: auto; }
-
 /* Typography */
 .h-page-title { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; }
 .h-section-label {

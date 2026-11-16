@@ -75,6 +75,21 @@ body { font-size: 14px; }
 .output-media { display: block; max-width: 100%; border-radius: var(--bs-border-radius); }
 .output-audio { display: flex; flex-direction: column; gap: .5rem; }
 .output-audio-cover { display: block; width: 100%; max-width: 24rem; aspect-ratio: 1; object-fit: cover; margin-inline: auto; border-radius: var(--bs-border-radius); }
+.audio-player {
+  width: 100%; min-width: 0; padding: 1rem;
+  border: 1px solid var(--app-border); border-radius: var(--bs-border-radius); background: var(--app-surface);
+}
+.audio-player [hidden] { display: none !important; }
+.audio-player-waveform { position: relative; }
+.audio-player-seek {
+  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: crosshair;
+}
+.audio-player-waveform:focus-within { outline: 2px solid var(--bs-primary); outline-offset: 3px; }
+.audio-player-ticks, .audio-player-controls {
+  display: flex; justify-content: space-between; gap: .5rem;
+}
+.audio-player-controls { flex-wrap: wrap; align-items: center; }
+.audio-player-speed { width: auto; }
 .output-full .output-media { max-height: 75vh; margin-inline: auto; }
 /* A video that hasn't drawn a frame (or failed) is a black box, never a hole showing the page behind it. */
 video.output-media { background: #000; }
