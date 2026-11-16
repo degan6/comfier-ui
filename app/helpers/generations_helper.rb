@@ -133,7 +133,8 @@ module GenerationsHelper # rubocop:disable Metrics/ModuleLength
     when %r{\Avideo/}
       video_player(url, attachment, controls:, poster:, page: 'public link')
     when %r{\Aaudio/}
-      audio_player(url, cover_url: public_cover_url(generation))
+      waveform = public_share_waveform_path(generation.public_token, index, v: attachment.blob_id) if controls
+      audio_player(url, cover_url: public_cover_url(generation), waveform_url: waveform)
     else poster ? model_preview(attachment, poster) : file_output(attachment)
     end
   end
@@ -154,7 +155,9 @@ module GenerationsHelper # rubocop:disable Metrics/ModuleLength
     when %r{\Aimage/} then image_tag(url, alt: attachment.filename.to_s, class: 'output-media', loading: 'lazy')
     when %r{\Avideo/}
       video_player(url, attachment, controls:, poster: poster_url, preload:, generation_id: attachment.record_id)
-    when %r{\Aaudio/} then audio_player(url, cover_url:)
+    when %r{\Aaudio/}
+      waveform = waveform_generation_path(attachment.record_id, attachment.id) if controls
+      audio_player(url, cover_url:, waveform_url: waveform)
     else poster_url ? model_preview(attachment, poster_url) : file_output(attachment)
     end
   end
@@ -185,14 +188,18 @@ module GenerationsHelper # rubocop:disable Metrics/ModuleLength
     end
   end
 
-  # An audio player, with the track's album art above it when it has some.
-  def audio_player(url, cover_url: nil)
-    player = audio_tag(url, controls: true, class: 'w-100', preload: 'metadata')
-    return player unless cover_url
+  # An audio player, with the track's album art above it when it has some. The waveform player is always wrapped,
+  # so album art that arrives in a page refresh is added above a song that carries on playing.
+  def audio_player(url, cover_url: nil, waveform_url: nil)
+    player = if waveform_url
+               render('generations/audio_player', url:, waveform_url:)
+             else
+               audio_tag(url, controls: true, class: 'w-100', preload: 'metadata')
+             end
+    return player unless cover_url || waveform_url
 
-    tag.div(class: 'output-audio') do
-      safe_join([image_tag(cover_url, alt: 'Album art', class: 'output-audio-cover', loading: 'lazy'), player])
-    end
+    cover = image_tag(cover_url, alt: 'Album art', class: 'output-audio-cover', loading: 'lazy') if cover_url
+    tag.div(safe_join([cover, player].compact), class: 'output-audio')
   end
 
   def album_art_url(generation)

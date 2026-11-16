@@ -10,3 +10,4 @@ pin_all_from 'app/javascript/controllers', under: 'controllers'
 pin 'bootstrap', to: 'bootstrap.bundle.min.js' # @5.3.8
 pin 'chart.js', to: 'chart.js.js' # @4.5.1
 pin '@kurkle/color', to: '@kurkle--color.js' # @0.3.4
+pin 'wavesurfer.js', to: 'wavesurfer.js' # @8.1.0 (BSD-3-Clause; license in vendor/javascript)
